@@ -1,0 +1,55 @@
+# RT-DETR-r18 MM mid + DAttention + CSP_MutilScaleEdgeInformationEnhance + FDPN-DASI
+
+nc: 80
+scales:
+  l: [1.00, 1.00, 1024]
+
+backbone:
+  # RGB branch
+  - [-1, 1, Conv, [64, 3, 2], 'RGB']                                # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]                                      # 1-P2/4
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [128]]            # 2
+  - [-1, 1, Conv, [256, 3, 2]]                                      # 3-P3/8
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [256]]            # 4 (RGB P3)
+
+  # X branch
+  - [-1, 1, Conv, [64, 3, 2], 'X']                                  # 5-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]                                      # 6-P2/4
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [128]]            # 7
+  - [-1, 1, Conv, [256, 3, 2]]                                      # 8-P3/8
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [256]]            # 9 (X P3)
+
+  # Mid-level fusion at P3
+  - [[4, 9], 1, Concat, [1]]                                        # 10
+  - [-1, 1, Conv, [256, 1, 1]]                                      # 11 (Fused P3)
+
+  # Continue fused trunk
+  - [-1, 1, Conv, [384, 3, 2]]                                      # 12-P4/16
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [384]]            # 13 (P4)
+  - [-1, 1, Conv, [384, 3, 2]]                                      # 14-P5/32
+  - [-1, 3, CSP_MutilScaleEdgeInformationEnhance, [384]]            # 15 (P5)
+
+head:
+  - [15, 1, Conv, [256, 1, 1, None, 1, 1, False]]                   # 16 input_proj.2
+  - [-1, 1, TransformerEncoderLayer_DAttention, [1024]]             # 17
+  - [-1, 1, Conv, [256, 1, 1]]                                      # 18 Y5
+
+  # FDPN-DASI stage-1
+  - [[18, 13, 11], 1, DASI, [256]]                                  # 19 P4
+  - [19, 1, Conv, [256, 3, 2]]                                      # 20 P5
+  - [[20, 15], 1, Concat, [1]]                                      # 21
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 22 P5
+  - [19, 1, nn.Upsample, [None, 2, 'nearest']]                      # 23 P3
+  - [[23, 11], 1, Concat, [1]]                                      # 24
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 25 P3
+
+  # FDPN-DASI stage-2
+  - [[22, 19, 25], 1, DASI, [256]]                                  # 26 P4
+  - [26, 1, Conv, [256, 3, 2]]                                      # 27 P5
+  - [[20, 27, 22], 1, Concat, [1]]                                  # 28
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 29 P5
+  - [26, 1, nn.Upsample, [None, 2, 'nearest']]                      # 30 P3
+  - [[23, 30, 25], 1, Concat, [1]]                                  # 31
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 32 P3
+
+  - [[32, 26, 29], 1, RTDETRDecoder, [nc, 256, 300, 4, 8, 3]]      # Detect(P3, P4, P5)

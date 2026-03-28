@@ -1,0 +1,14 @@
+epoch,time,train/giou_loss,train/cls_loss,train/l1_loss,metrics/precision(B),metrics/recall(B),metrics/mAP50(B),metrics/mAP50-95(B),val/giou_loss,val/cls_loss,val/l1_loss,lr/pg0,lr/pg1,lr/pg2
+1,6959.04,nan,nan,nan,0,0,0,0,nan,nan,nan,0.00033288,0.00033288,0.00033288
+2,9466.96,nan,nan,nan,0,0,0,0,nan,nan,nan,0.000661816,0.000661816,0.000661816
+3,11902.1,nan,nan,nan,0,0,0,0,nan,nan,nan,0.000986352,0.000986352,0.000986352
+4,14390,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009802,0.0009802,0.0009802
+5,16842,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009736,0.0009736,0.0009736
+6,19342.4,nan,nan,nan,0,0,0,0,nan,nan,nan,0.000967,0.000967,0.000967
+7,21821.8,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009604,0.0009604,0.0009604
+8,24335.6,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009538,0.0009538,0.0009538
+9,26839.6,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009472,0.0009472,0.0009472
+10,29238.4,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009406,0.0009406,0.0009406
+11,31724.5,nan,nan,nan,0,0,0,0,nan,nan,nan,0.000934,0.000934,0.000934
+12,34248.8,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009274,0.0009274,0.0009274
+13,36749.4,nan,nan,nan,0,0,0,0,nan,nan,nan,0.0009208,0.0009208,0.0009208

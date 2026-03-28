@@ -1,0 +1,79 @@
+# Ultralytics YOLO, AGPL-3.0 license
+# RT-DETR-r18 multimodal mid-fusion + C2f_gConv + EMBSFPN-style neck
+# Reference style adapted to this repo: Fusion + EUCB + node_mode(CSP_MSCB)
+
+nc: 80
+scales:
+  l: [1.00, 1.00, 1024]
+
+fusion_mode: bifpn
+node_mode: CSP_MSCB
+head_channel: 128
+
+backbone:
+  # RGB branch
+  - [-1, 1, ConvNormLayer, [32, 3, 2, None, False, 'relu'], 'RGB']  # 0
+  - [-1, 1, ConvNormLayer, [32, 3, 1, None, False, 'relu']]          # 1
+  - [-1, 1, ConvNormLayer, [64, 3, 1, None, False, 'relu']]          # 2
+  - [-1, 1, nn.MaxPool2d, [3, 2, 1]]                                  # 3
+
+  # X branch
+  - [-1, 1, ConvNormLayer, [32, 3, 2, None, False, 'relu'], 'X']     # 4
+  - [-1, 1, ConvNormLayer, [32, 3, 1, None, False, 'relu']]          # 5
+  - [-1, 1, ConvNormLayer, [64, 3, 1, None, False, 'relu']]          # 6
+  - [-1, 1, nn.MaxPool2d, [3, 2, 1]]                                  # 7
+
+  # RGB stages
+  - [3, 1, Blocks, [64, BasicBlock, 2, 2, 'relu']]                    # 8
+  - [-1, 1, Blocks, [128, BasicBlock, 2, 3, 'relu']]                  # 9 (RGB P3)
+
+  # X stages
+  - [7, 1, Blocks, [64, BasicBlock, 2, 2, 'relu']]                    # 10
+  - [-1, 1, Blocks, [128, BasicBlock, 2, 3, 'relu']]                  # 11 (X P3)
+
+  # Mid-level fusion at P3
+  - [[9, 11], 1, Concat, [1]]                                          # 12
+  - [-1, 1, Conv, [256, 1, 1]]                                         # 13
+  - [-1, 2, C2f_gConv, [256]]                                          # 14 (enhanced P3)
+
+  # Continue fused trunk
+  - [-1, 1, Blocks, [256, BasicBlock, 2, 4, 'relu']]                  # 15 (P4)
+  - [-1, 1, Blocks, [512, BasicBlock, 2, 5, 'relu']]                  # 16 (P5)
+
+head:
+  - [16, 1, Conv, [256, 1, 1, None, 1, 1, False]]                     # 17 input_proj.2
+  - [-1, 1, AIFI, [1024, 8]]                                           # 18
+  - [-1, 1, Conv, [256, 1, 1]]                                         # 19 Y5 lateral
+
+  - [14, 1, Conv, [head_channel]]                                      # 20 P3/8
+  - [15, 1, Conv, [head_channel]]                                      # 21 P4/16
+  - [19, 1, Conv, [head_channel]]                                      # 22 P5/32
+
+  - [21, 1, Conv, [head_channel, 3, 2]]                                # 23 P4->P5
+  - [[-1, 22], 1, Fusion, [fusion_mode]]                               # 24
+  - [-1, 3, node_mode, [head_channel, [5, 7, 9]]]                      # 25 P5_td
+
+  - [-1, 1, EUCB, []]                                                  # 26 P5->P4
+  - [20, 1, Conv, [head_channel, 3, 2]]                                # 27 P3->P4
+  - [[-1, -2, 21], 1, Fusion, [fusion_mode]]                           # 28
+  - [-1, 3, node_mode, [head_channel, [3, 5, 7]]]                      # 29 P4_td
+
+  - [-1, 1, EUCB, []]                                                  # 30 P4->P3
+  - [20, 1, Conv, [head_channel, 3, 1]]                                # 31 P3 keep-scale
+  - [[-1, -2, 20], 1, Fusion, [fusion_mode]]                           # 32
+  - [-1, 3, node_mode, [head_channel, [1, 3, 5]]]                      # 33 P3_mid
+
+  - [[30, -1], 1, Fusion, [fusion_mode]]                               # 34
+  - [-1, 3, node_mode, [head_channel, [1, 3, 5]]]                      # 35 P3_out
+
+  - [33, 1, Conv, [head_channel, 3, 2]]                                # 36 P3->P4
+  - [35, 1, Conv, [head_channel, 3, 2]]                                # 37 P3->P4
+  - [[-1, -2, 29, 26], 1, Fusion, [fusion_mode]]                       # 38
+  - [-1, 3, node_mode, [head_channel, [3, 5, 7]]]                      # 39 P4_out
+
+  - [29, 1, Conv, [head_channel, 3, 2]]                                # 40 P4->P5
+  - [39, 1, Conv, [head_channel, 3, 2]]                                # 41 P4->P5
+  - [[-1, -2, 25], 1, Fusion, [fusion_mode]]                           # 42
+  - [-1, 3, node_mode, [head_channel, [5, 7, 9]]]                      # 43 P5_out
+
+  - [[35, 39, 43], 1, RTDETRDecoder, [nc, 256, 300, 4, 8, 3]]         # 44 Detect(P3,P4,P5)

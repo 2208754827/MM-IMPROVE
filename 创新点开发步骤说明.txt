@@ -1,0 +1,265 @@
+﻿创新点开发步骤说明（适用于本项目 RTDETRMM）
+
+适用范围：
+- 你当前这个仓库（ultralytics 改版 + 多模态 RTDETRMM）
+- 主要目标：在不破坏现有训练流程的前提下，稳定新增一个创新点并完成对比实验
+
+==================================================
+一、推荐总流程（先稳后快）
+==================================================
+
+步骤1：先定基线（不要直接改一堆）
+1) 选择一个你当前可跑通的模型作为 baseline。
+2) 固定训练参数：data、epochs、batch、imgsz、device、seed。
+3) 记录 baseline 结果（mAP50、mAP50-95、参数量、FLOPs、FPS）。
+
+建议基线文件：
+- ultralytics/cfg/models/rtmm/r18/aifi-dattention-c2f-gconv.yaml
+
+步骤2：定义创新点“只改一件事”
+1) 明确改动属于哪一类：
+   - Backbone 增强
+   - 融合模块（P3/P4/P5）
+   - Neck 结构（如 EMBSFPN/BiFPN 风格）
+   - Head/Decoder 前的特征增强
+2) 每次只改一个变量，避免无法定位收益来源。
+
+步骤3：选择代码落点
+- C2f 类创新：ultralytics/nn/extraction/c2f_variants.py
+- Neck 类创新：ultralytics/nn/Neck/neck_variants.py
+- 融合类创新：ultralytics/nn/modules/fusion/
+- YAML：ultralytics/cfg/models/rtmm/r18/
+- 解析器：ultralytics/nn/tasks.py
+
+步骤4：实现模块（先最小可用）
+1) 先保证 forward 能跑通，输入输出 shape 明确。
+2) 先不追求复杂技巧，优先可复现和可对比。
+3) 命名统一：模块名与 YAML 中写法一致。
+
+步骤5：注册模块（这是最容易漏的）
+1) 在对应 __init__.py 中导出类。
+2) 在 ultralytics/nn/tasks.py 中保证 parse_model 可识别该类。
+3) 若参数格式特殊，给 parse_model 增加专门分支（不要强行走通用分支）。
+
+步骤6：新建 YAML（不要覆盖老文件）
+1) 复制 baseline YAML，新命名。
+2) 只改你创新点相关层。
+3) 同步检查层索引 from 是否正确。
+
+命名建议：
+- aifi-dattention-c2f-你的创新名.yaml
+
+步骤7：本地静态检查
+1) YAML 语法通过。
+2) 层引用没有“前向引用”（引用未来层）。
+3) 模块名都能被 parse_model 找到。
+
+步骤8：小规模冒烟训练
+1) 先跑 1~3 epoch 检查是否稳定。
+2) 再跑完整训练。
+3) 若显存爆炸，先降 head_channel 或 batch。
+
+步骤9：做消融实验（必须）
+最少做三组：
+1) Baseline
+2) Baseline + 创新点
+3) Baseline + 创新点(轻量版或去掉关键子模块)
+
+步骤10：沉淀结果
+1) 在 ResTest 下统一命名输出目录。
+2) 写一份 1 页结论：收益、代价、失败案例、下一步。
+
+
+==================================================
+二、本项目里最关键的三个注意点
+==================================================
+
+1) YAML 中变量字符串（如 head_channel/fusion_mode/node_mode）
+- 不一定默认可用，必须确认 tasks.py 有对应解析逻辑。
+
+2) 复杂模块不要硬套通用解析
+- 例如 Fusion、EUCB、CSP_MSCB 这类模块，参数签名和 Conv 不同。
+- 建议在 tasks.py 里写专门分支处理。
+
+3) 训练脚本只切模型名
+- 你现在用的是 trainRT.py，直接改 model_name1 即可切模型。
+
+
+==================================================
+三、示例：新增一个“P3融合后轻量增强块”
+==================================================
+
+目标：
+- 在融合后的 P3 特征后插入一个新模块 C2f_EdgeBoost，观察小目标提升。
+
+示例步骤：
+
+A. 新增模块类
+- 文件：ultralytics/nn/extraction/c2f_variants.py
+- 新类：C2f_EdgeBoost（输入输出通道不变，支持 repeats）
+
+B. 导出模块
+- 文件：ultralytics/nn/extraction/__init__.py（若项目有聚合导出）
+- 或在 tasks.py 对应 import 区域引入 C2f_EdgeBoost
+
+C. 解析器注册
+- 文件：ultralytics/nn/tasks.py
+- 把 C2f_EdgeBoost 加入：
+  1) base_modules（让 c1/c2 自动注入）
+  2) repeat_modules（支持 YAML repeats）
+
+D. 新建 YAML
+- 复制：aifi-dattention-c2f-gconv.yaml
+- 新建：aifi-dattention-c2f-edgeboost.yaml
+- 在融合 P3 后位置加：
+  - [-1, 2, C2f_EdgeBoost, [256]]
+
+E. 修改训练入口
+- 文件：trainRT.py
+- model_name1 = "aifi-dattention-c2f-edgeboost"
+
+F. 先冒烟后全量
+1) 先 1~3 epoch 看 loss 与显存是否正常。
+2) 再跑完整 epochs。
+
+G. 对比结果
+- 对比 baseline 与 edgeboost 两组。
+- 如果提升不明显，优先尝试：
+  1) repeats 从 2 改 1
+  2) 只在 P3 用，不扩展到 P4/P5
+
+
+==================================================
+四、你可以直接复用的实验模板
+==================================================
+
+实验命名建议：
+- ResTest/模型名-日期-核心改动
+
+每次实验记录这6项：
+1) 模型 YAML 名称
+2) 代码改动文件列表
+3) 训练超参数
+4) 最佳 epoch 指标
+5) 推理速度/FPS
+6) 结论（一句话）
+
+
+==================================================
+五、最低可用检查清单（开跑前）
+==================================================
+
+[ ] 新模块类已实现且 forward 返回 shape 正确
+[ ] __init__ 和 tasks.py 已注册
+[ ] YAML 层索引无误
+[ ] trainRT.py 模型名已切换
+[ ] 先小 epoch 冒烟通过
+[ ] 再做完整训练与消融对比
+
+
+（完）
+
+==================================================
+六、外部创新点迁移：代码落位与注册点（你问的重点）
+==================================================
+
+你要记住一个原则：
+YAML 里能写的模块名，最终都必须被 ultralytics/nn/tasks.py 的 parse_model 识别到。
+
+下面按“模块类型”给你精确落位。
+
+1) 普通单输入模块（最常见）
+- 典型签名：__init__(c1, c2, ...), forward(x)
+- 推荐放置：
+  - 通用块：ultralytics/nn/modules/block.py
+  - 或 C2f 变体：ultralytics/nn/extraction/c2f_variants.py
+- 注册位置：
+  1. 对应 __init__.py 导出（例如 ultralytics/nn/extraction/__init__.py）
+  2. ultralytics/nn/tasks.py 顶部 import 进来
+  3. ultralytics/nn/tasks.py 的 base_modules 加上你的类
+  4. 如果 YAML 要用 repeats>1，再把类加到 repeat_modules
+- YAML 写法：
+  - [-1, 2, 你的模块名, [256]]
+
+2) 双输入融合模块（如 [x1, x2] -> y）
+- 典型签名：__init__(dim, ...), forward([x1, x2])
+- 推荐放置：
+  - ultralytics/nn/modules/fusion/你的文件.py
+- 注册位置：
+  1. ultralytics/nn/modules/fusion/__init__.py 导出
+  2. ultralytics/nn/modules/__init__.py 导出
+  3. ultralytics/nn/tasks.py 顶部可见（本仓库已 from ultralytics.nn.modules.fusion import *）
+  4. 在 ultralytics/nn/tasks.py 对应融合分支加入你的类（搜索关键字：FeatureFusion, FCM, FusionConvMSAA）
+- YAML 写法：
+  - [[9, 11], 1, 你的融合模块名, [null, ...]]
+
+3) Neck 模块（FPN/BiFPN/EMBSFPN 这类）
+- 推荐放置：
+  - ultralytics/nn/Neck/neck_variants.py
+- 注册位置：
+  1. ultralytics/nn/Neck/__init__.py 导出
+  2. ultralytics/nn/tasks.py 的 from ultralytics.nn.Neck import (...) 加入你的类
+  3. ultralytics/nn/tasks.py 的 NECK_CLASS 加入你的类
+  4. 若参数签名特殊，在 parse_model 里加专门分支（例如 Fusion/EUCB/CSP_MSCB 就是这种）
+- YAML 写法：
+  - [-1, 1, 你的Neck模块名, [参数...]]
+
+4) 检测头 / 分割头 / 姿态头
+- 推荐放置：
+  - 常规头：ultralytics/nn/modules/head.py
+  - 项目定制头：ultralytics/nn/Head/...
+- 注册位置：
+  1. 对应 __init__.py 导出
+  2. ultralytics/nn/tasks.py 顶部 import
+  3. 加入 DETECT_CLASS / SEGMENT_CLASS / POSE_CLASS / OBB_CLASS 对应集合
+- YAML 写法：
+  - 最后一层 Detect/Segment/Pose/OBB 直接写你的头名
+
+5) 多输出模块（forward 返回 tuple/list）
+- 例如输出 (P3,P4,P5)
+- 除了正常导出外，还要在 parse_model 里处理 c2 为 list 的逻辑是否匹配。
+- 若要取其中一个分支，用 Index 层。
+
+
+--------------------------------------------------
+A. 迁移时最小必改清单（按顺序）
+--------------------------------------------------
+
+1. 把外部模块代码复制到目标目录（modules/fusion/Neck/extraction）。
+2. 在对应 __init__.py 导出类名。
+3. 在 ultralytics/nn/tasks.py 保证：
+   - 能 import 到类
+   - parse_model 有对应装配逻辑（通用或专用）
+   - 需要 repeats 的加入 repeat_modules
+4. 新建 YAML（不要改原基线）。
+5. 先跑 1~3 epoch 冒烟。
+
+
+--------------------------------------------------
+B. 什么时候必须改 tasks.py？
+--------------------------------------------------
+
+只要你模块不满足“标准 Conv 风格参数”就要改。典型触发：
+- 需要多输入列表（如 [x1,x2,x3]）
+- 初始化参数不是 [c1,c2,...] 格式
+- 需要从 YAML 顶层变量取值（如 head_channel/node_mode/fusion_mode）
+- forward 输出多路特征
+
+
+--------------------------------------------------
+C. 一个你可直接套用的迁移例子（Neck 模块）
+--------------------------------------------------
+
+场景：把外部项目的 NewBiFPNBlock 迁移进来。
+
+落位：
+1) 代码放到：ultralytics/nn/Neck/neck_variants.py
+2) 导出到：ultralytics/nn/Neck/__init__.py
+3) 注册到：ultralytics/nn/tasks.py
+   - Neck import 列表加 NewBiFPNBlock
+   - NECK_CLASS 加 NewBiFPNBlock
+   - 若参数特殊，parse_model 增加 elif m is NewBiFPNBlock: ...
+4) YAML 使用：
+   - [-1, 1, NewBiFPNBlock, [128, 3, ...]]
+
+这样就完成了“可被 YAML 调用”的完整迁移链。

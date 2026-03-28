@@ -1,0 +1,79 @@
+﻿# RT-DETR-r18 MM + DAttention + CSP_MutilScaleEdgeInformationEnhance + ASF-P2-lite + CrossLayerSpatialAttention
+# Note: CLSA returns a list, so we refine P3/P4/P5 together and re-inject by Add.
+
+nc: 80
+scales:
+  l: [1.00, 1.00, 1024]
+
+backbone:
+  # RGB branch
+  - [-1, 1, Conv, [64, 3, 2], 'RGB']                                # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]                                      # 1-P2/4
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [128]]            # 2
+  - [-1, 1, Conv, [256, 3, 2]]                                      # 3-P3/8
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [256]]            # 4 (RGB P3)
+
+  # X branch
+  - [-1, 1, Conv, [64, 3, 2], 'X']                                  # 5-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]                                      # 6-P2/4
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [128]]            # 7
+  - [-1, 1, Conv, [256, 3, 2]]                                      # 8-P3/8
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [256]]            # 9 (X P3)
+
+  # Mid-level fusion at P3
+  - [[4, 9], 1, Concat, [1]]                                        # 10
+  - [-1, 1, Conv, [256, 1, 1]]                                      # 11 (Fused P3)
+
+  # Continue fused trunk
+  - [-1, 1, Conv, [384, 3, 2]]                                      # 12-P4/16
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [384]]            # 13 (P4)
+  - [-1, 1, Conv, [384, 3, 2]]                                      # 14-P5/32
+  - [-1, 3, CSP_MutilScaleEdgeInformationEnhance, [384]]            # 15 (P5)
+
+head:
+  - [-1, 1, Conv, [256, 1, 1, None, 1, 1, False]]                   # 16 input_proj.2
+  - [-1, 1, TransformerEncoderLayer_DAttention, [1024]]             # 17
+  - [-1, 1, Conv, [256, 1, 1]]                                      # 18 Y5
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]                      # 19
+  - [11, 1, Conv, [256, 1, 1, None, 1, 1, False]]                   # 20 input_proj.1 (P3)
+  - [[-1, 13, -2], 1, Zoom_cat, []]                                 # 21
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 22 Y4
+  - [-1, 1, Conv, [256, 1, 1]]                                      # 23
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]                      # 24
+  - [2, 1, Conv, [128, 1, 1, None, 1, 1, False]]                    # 25 input_proj.0-lite (P2 256->128)
+  - [[-1, 11, -2], 1, Zoom_cat, []]                                 # 26
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 27 P3
+
+  - [-1, 1, Conv, [256, 3, 2]]                                      # 28
+  - [[-1, 23], 1, Concat, [1]]                                      # 29
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 30 P4
+
+  - [-1, 1, Conv, [256, 3, 2]]                                      # 31
+  - [[-1, 18], 1, Concat, [1]]                                      # 32
+  - [-1, 3, RepC3, [256, 0.5]]                                      # 33 P5
+
+  # CLSA on equal-channel P3/P4/P5, then residual re-injection
+  - [[27, 30, 33], 1, CrossLayerSpatialAttention, [256]]            # 34 list_out
+  - [34, 1, GetIndexOutput, [0]]                                    # 35 P3_attn
+  - [34, 1, GetIndexOutput, [1]]                                    # 36 P4_attn
+  - [34, 1, GetIndexOutput, [2]]                                    # 37 P5_attn
+  - [[27, 35], 1, Add, []]                                          # 38 P3_refined
+  - [[30, 36], 1, Add, []]                                          # 39 P4_refined
+  - [[33, 37], 1, Add, []]                                          # 40 P5_refined
+
+  - [[11, 13, 16], 1, ScalSeq, [256]]                               # 41
+  - [[38, -1], 1, Add, []]                                          # 42 P3_refined + context
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]                      # 43
+  - [2, 1, Conv, [128, 1, 1, None, 1, 1, False]]                    # 44 P2-lite proj
+  - [[-1, -2], 1, Concat, [1]]                                      # 45 keep concat for 128+256
+  - [-1, 3, RepC3, [128, 0.5]]                                      # 46 P2-lite
+
+  - [[2, 42, 39], 1, ScalSeq, [128]]                                # 47 P2-lite context
+  - [[46, -1], 1, Add, []]                                          # 48
+  - [-1, 1, Conv, [256, 1, 1]]                                      # 49 restore to decoder dim
+
+  - [[49, 42, 39, 40], 1, RTDETRDecoder, [nc, 256, 300, 4, 8, 3]]  # 50 Detect(P2, P3, P4, P5)
+
