@@ -21,7 +21,7 @@ def banner(msg="论文上的数据以以下结果为准"):
 
 
 if __name__ == "__main__":
-    model_name = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-ScalarGate-SE"
+    model_name = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-SDFM"
 
 
 

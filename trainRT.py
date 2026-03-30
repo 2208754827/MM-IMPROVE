@@ -19,8 +19,8 @@ def main():
     from ultralytics import RTDETRMM  
     #
 
-    model_name1 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-ChannelGate-SE"
-    model_name2 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-ScalarGate-SE"
+    model_name1 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-FusionConvMSAA"
+    model_name2 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-IIA"
 
     batch1 = 4
     batch2 = 4
