@@ -30,6 +30,16 @@ from .cgafusion import CGAFusion
 from .csfcn import CFC_CRB, SFC_G2
 from .msc import MSC
 from .pst import PST
+from .fusion_bifpn import FusionBiFPN
+from .cen_fusion import CENFusion
+from .cddfusion import CDDFusion
+from .metafusion import MetaFeatureFusion
+from .cmxfusion import CMXFusion
+from .superyolofusion import SuperYOLOFusion
+from .mambadfuse import MambaDFuseBlock
+from .piafusion import PIAFusionBlock
+from .sigmafusion import SigmaFusionBlock
+from .tardal_fusion import TarDALFusion
 from .msga import MultiScaleGatedAttn
 from .icafusion import NiNfusion  # public
 from .ctf import CrossTransformerFusion, MultiHeadCrossAttention  # public
@@ -49,7 +59,7 @@ __all__ = (
     'FeatureFusion', 'FeatureInteraction', 'ChannelEmbed', 'CrossAttention', 'FCM', 'FCMFeatureFusion', 'CAM',
     # Advanced fusion/attention blocks
     'SequenceShuffleAttention', 'FeatureComplementaryMapping', 'TokenSelectiveAttention', 'SEFN', 'EDFFN',
-    'FusionConvMSAA', 'IIA', 'HighFrequencyPerception', 'SpatialDependencyPerception', 'CGAFusion', 'CFC_CRB', 'SFC_G2', 'MSC', 'PST',
+    'FusionConvMSAA', 'IIA', 'HighFrequencyPerception', 'SpatialDependencyPerception', 'CGAFusion', 'CFC_CRB', 'SFC_G2', 'MSC', 'PST', 'FusionBiFPN', 'CENFusion', 'CDDFusion', 'MetaFeatureFusion', 'CMXFusion', 'SuperYOLOFusion', 'MambaDFuseBlock', 'PIAFusionBlock', 'SigmaFusionBlock', 'TarDALFusion',
     'MultiScaleGatedAttn',
     'ConvFFN_GLU', 'NiNfusion', 'CrossTransformerFusion', 'MultiHeadCrossAttention',
     'DEA', 'DECA', 'DEPA', 'BiFocus', 'C2f_BiFocus',

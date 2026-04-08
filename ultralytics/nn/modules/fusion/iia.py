@@ -15,8 +15,11 @@ class IIA(nn.Module):
         self._c = None
         self.conv_h: nn.Module | None = None
         self.conv_w: nn.Module | None = None
+        # 若 tasks.py 已注入 channel，提前构建子模块使 thop/profile 能正确统计 GFLOPs
+        if isinstance(channel, int) and channel > 0:
+            self._build_if_needed(channel)
 
-    def _build_if_needed(self, c: int) -> None:
+    def _build_if_needed(self, c: int, device=None, dtype=None) -> None:
         if self._built and self._c == c:
             return
         k = self.kernel_size
@@ -31,12 +34,15 @@ class IIA(nn.Module):
         )
         self._built = True
         self._c = c
+        if device is not None:
+            self.conv_h.to(device=device, dtype=dtype)
+            self.conv_w.to(device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not isinstance(x, torch.Tensor) or x.dim() != 4:
             raise TypeError("IIA 期望输入 [B, C, H, W]")
         B, C, H, W = x.shape
-        self._build_if_needed(C)
+        self._build_if_needed(C, device=x.device, dtype=x.dtype)
         # 方向性空间注意力：先在通道维做池化，得到 2 通道的空间描述，再用(1,k)/(k,1)卷积注入方向先验
         avg = torch.mean(x, dim=1, keepdim=True)          # [B, 1, H, W]
         maxv, _ = torch.max(x, dim=1, keepdim=True)       # [B, 1, H, W]

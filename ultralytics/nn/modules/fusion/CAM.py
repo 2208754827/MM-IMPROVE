@@ -38,7 +38,7 @@ class CAM(nn.Module):
         self.proj_txt_in: nn.Module | None = None
         self.proj_out: nn.Module | None = None
 
-    def _build_if_needed(self, c_left: int, c_right: int) -> None:
+    def _build_if_needed(self, c_left: int, c_right: int, device=None, dtype=None) -> None:
         if self._built and self._c_left == c_left and self._c_right == c_right:
             return
 
@@ -53,6 +53,10 @@ class CAM(nn.Module):
         self._c_left = c_left
         self._c_right = c_right
         self._c_common = c_common
+        if device is not None:
+            self.proj_img_in.to(device=device, dtype=dtype)
+            self.proj_txt_in.to(device=device, dtype=dtype)
+            self.proj_out.to(device=device, dtype=dtype)
 
     def forward(self, x1, x2=None):
         # 兼容 parse_model 输入为 [x1, x2] 的形式
@@ -70,7 +74,7 @@ class CAM(nn.Module):
             raise ValueError(f"CAM 要求两路输入 batch 一致，got {b1} vs {b2}")
 
         # 构建投影层（仅首次或形状变化时）
-        self._build_if_needed(c1, c2)
+        self._build_if_needed(c1, c2, device=x1.device, dtype=x1.dtype)
 
         # 投影至公共维度
         img = self.proj_img_in(x1)

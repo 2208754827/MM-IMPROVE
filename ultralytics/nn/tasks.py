@@ -3297,7 +3297,7 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
                 c_out = make_divisible(min(c_out, max_channels) * width, 8)
             args = [c_main, c_aux, c_out, mode, k, 1, None, 1, main_idx, aux_idx, zero_init, use_bn, act]
             c2 = c_main
-        elif m is MultiScaleGatedAttn:
+        elif m in {MultiScaleGatedAttn, FusionBiFPN}:
             if isinstance(f, int) or len(f) != 2:
                 raise ValueError(f"{m.__name__} expects 2 inputs, got {f} at layer {i}")
             c_left, c_right = ch[f[0]], ch[f[1]]
@@ -3306,7 +3306,7 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
             elif args[0] is None:
                 args[0] = [c_left, c_right]
             c2 = min(c_left, c_right)
-        elif m in frozenset({FeatureFusion, FCM, FCMFeatureFusion, ConvMixFusion, CAM, SEFN, FusionConvMSAA, MSC, SpatialDependencyPerception, CGAFusion}):
+        elif m in frozenset({FeatureFusion, FCM, FCMFeatureFusion, ConvMixFusion, CAM, SEFN, FusionConvMSAA, MSC, SpatialDependencyPerception, CGAFusion, CMXFusion, SuperYOLOFusion, SigmaFusionBlock, TarDALFusion}):
             # Expect exactly two inputs; output channels follow the left branch
             if isinstance(f, int) or len(f) != 2:
                 raise ValueError(f"{m.__name__} expects 2 inputs, got {f} at layer {i}")
@@ -3317,6 +3317,45 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
             elif args[0] is None:
                 args[0] = c_left
             c2 = c_left
+        elif m is MetaFeatureFusion:
+            # MetaFeatureFusion(c1, c2): c1=fusion branch channels, c2=semantic branch channels
+            # output channels = c1 (residual fusion, Fout = Fuj + Ftj)
+            if isinstance(f, int) or len(f) != 2:
+                raise ValueError(f"{m.__name__} expects 2 inputs, got {f} at layer {i}")
+            c_left, c_right = ch[f[0]], ch[f[1]]
+            args = [c_left, c_right]
+            c2 = c_left
+        elif m is CENFusion:
+            # CENFusion(c, p=0.5): c=input channels (auto-injected), p=swap ratio from YAML args[0]
+            if isinstance(f, int) or len(f) != 2:
+                raise ValueError(f"{m.__name__} expects 2 inputs, got {f} at layer {i}")
+            c_left = ch[f[0]]
+            p = args[0] if len(args) > 0 else 0.5
+            args = [c_left, p]
+            c2 = c_left
+        elif m is MambaDFuseBlock:
+            # MambaDFuseBlock(c1, c2, p=0.5): c1=c2=input channels, p=exchange ratio from YAML args[0]
+            if isinstance(f, int) or len(f) != 2:
+                raise ValueError(f"{m.__name__} expects 2 inputs, got {f} at layer {i}")
+            c_left, c_right = ch[f[0]], ch[f[1]]
+            p = args[0] if len(args) > 0 else 0.5
+            args = [c_left, c_right, p]
+            c2 = c_left
+        elif m is PIAFusionBlock:
+            # PIAFusionBlock(c1, c2): illumination-aware + CMDAF, output = c1 + c2 (cat)
+            if isinstance(f, int) or len(f) != 2:
+                raise ValueError(f"{m.__name__} expects 2 inputs, got {f} at layer {i}")
+            c_left, c_right = ch[f[0]], ch[f[1]]
+            args = [c_left, c_right]
+            c2 = c_left + c_right  # 输出为拼接通道数
+        elif m is CDDFusion:
+            # CDDFusion(ch=[c1,c2], c_out=256): dual-branch feature decomposition fusion
+            if isinstance(f, int) or len(f) != 2:
+                raise ValueError(f"{m.__name__} expects 2 inputs, got {f} at layer {i}")
+            c_left, c_right = ch[f[0]], ch[f[1]]
+            c_out_val = args[0] if len(args) > 0 and args[0] is not None else 256
+            args = [[c_left, c_right], c_out_val]
+            c2 = c_out_val
         elif m is ScalarGate:
             # Dual-path mode: [[rgb, ir], 1, ScalarGate, []] -> global scalar modal fusion gate
             # Single-path mode: [-1, 1, ScalarGate, []]      -> global scalar SE attention on fused feature
@@ -3328,6 +3367,13 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
                 if len(f) != 2:
                     raise ValueError(f"{m.__name__} expects 1 or 2 inputs, got {f} at layer {i}")
                 c2 = ch[f[0]]
+            if len(args) == 0:
+                args.insert(0, c2)
+            elif args[0] is None:
+                args[0] = c2
+        elif m is IIA:
+            # Single-input directional attention; channel-preserving, inject c1 so GFLOPs profile works
+            c2 = ch[f] if isinstance(f, int) else ch[f[0]]
             if len(args) == 0:
                 args.insert(0, c2)
             elif args[0] is None:

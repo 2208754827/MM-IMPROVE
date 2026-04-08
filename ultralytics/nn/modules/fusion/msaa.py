@@ -63,8 +63,11 @@ class FusionConvMSAA(nn.Module):
         self.spatial_attn: nn.Module | None = None
         self.channel_attn: nn.Module | None = None
         self.up: nn.Module | None = None
+        # 若 tasks.py 已注入 dim，提前构建子模块使 thop/profile 能正确统计 GFLOPs
+        if isinstance(dim, int) and dim > 0:
+            self._build_if_needed(dim)
 
-    def _build_if_needed(self, c: int) -> None:
+    def _build_if_needed(self, c: int, device=None, dtype=None) -> None:
         if self._built and self._c == c:
             return
         mid = max(int(c // self.factor), 1)
@@ -78,6 +81,14 @@ class FusionConvMSAA(nn.Module):
         self._built = True
         self._c = c
         self._mid = mid
+        if device is not None:
+            self.down.to(device=device)
+            self.conv3.to(device=device)
+            self.conv5.to(device=device)
+            self.conv7.to(device=device)
+            self.spatial_attn.to(device=device)
+            self.channel_attn.to(device=device)
+            self.up.to(device=device)
 
     def forward(self, x1, x2=None):
         if x2 is None and isinstance(x1, (list, tuple)):
@@ -87,7 +98,12 @@ class FusionConvMSAA(nn.Module):
         if x1.shape != x2.shape:
             raise ValueError(f"FusionConvMSAA 要求两路输入形状一致，got {x1.shape} vs {x2.shape}")
         _, c, _, _ = x1.shape
-        self._build_if_needed(c)
+        self._build_if_needed(c, device=x1.device)
+        # AMP: cast inputs to match module weight dtype (keep weights in fp32)
+        w_dtype = self.down.weight.dtype
+        if x1.dtype != w_dtype:
+            x1 = x1.to(w_dtype)
+            x2 = x2.to(w_dtype)
         x = torch.cat([x1, x2], dim=1)
         x = self.down(x)
         res = x

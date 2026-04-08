@@ -455,7 +455,7 @@ def get_flops(model, imgsz=640):
         return 0.0
 
 
-def compute_model_gflops(model, imgsz=640, modality: str | None = None, route_aware: bool = True) -> float:
+def compute_model_gflops(model, imgsz=640, modality=None, route_aware: bool = True) -> float:
     """
     Compute model GFLOPs in a unified way for multimodal projects.
 

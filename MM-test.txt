@@ -12,6 +12,7 @@ aifi-dattention-c2f-gconv-embsfpn2  0.8705  | 0.8417 |  0.8555  | 0.8775 | 0.617
 #########暂定放弃
 #换骨干对比
 ！！！aifi-dattention-CSP-MutilScaleEdgeInformationEnhance  0.8807  | 0.8563 |  0.8678  | 0.8879(0.883) | 0.6308 |  0.5917  | 67.1  | 15,427,592 |     0.005491s     |    0.243991s    |     0.005016s     |             3.93            |    4.10   |      58.5MB     |
+采用 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance 2  0.8674  | 0.8560 |  0.8611  | 0.8816 | 0.6305 |  0.5922  ||  67.1  | 15,427,592 |     0.021722s     |    0.574374s    |     0.023644s     |             1.61            |    1.74   |      58.5MB 
 aifi-dattention-CSP-FreqSpatial4  0.8804  | 0.8273 |  0.8524  | 0.8693 | 0.6209 |  0.5849  |  87.4  | 22,174,984 |     0.005633s     |    0.302186s    |     0.005845s     |             3.19            |    3.31   |      71.2MB     |
 aifi-dattention-CSP-MutilScaleEdgeInformationSelect   0.8432  | 0.8641 |  0.8534  | 0.8714 | 0.6380 |  0.5893  | 68.3  | 15,604,168 |     0.005461s     |    0.348002s    |     0.005124s     |             2.79            |    2.87   |      59.0MB     |
 
@@ -53,6 +54,11 @@ aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-PST 0.8550  | 0.8715 |  0.8
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-CAB  0.8673  | 0.8492 |  0.8576  | 0.8787 | 0.6252 |  0.5916    82.1  | 18,430,632 |     0.005612s     |    0.356425s    |     0.005042s     |             2.72            |    2.81   |      64.3MB     |
 #      aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-MFM 0.8704  | 0.8672 |  0.8680  | 0.8891 | 0.6445 |  0.5930  | 65.8  | 15,263,752 |     0.005583s     |    0.260392s    |     0.005188s     |             3.69            |    3.84   |      58.2MB     |
 #  aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite0.8744  | 0.8738 |  0.8738  | 0.8929 | 0.6861 |  0.6211  | 102.6  | 16,147,816 |     0.005572s     |    0.449614s    |     0.005700s     |             2.17            |    2.22   |      60.0MB     |
+
+
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite2 0.9009  | 0.8510 |  0.8745  | 0.8888 | 0.6609 |  0.6103  |102.6  | 16,147,816 |     0.009881s     |    0.437947s    |     0.006353s     |             2.20            |    2.28   |      60.0MB     
+（采用）aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite4 0.8759  | 0.8566 |  0.8656  | 0.8872 | 0.6699 |  0.6151  |102.6  | 16,147,816 |     0.009910s     |    0.438452s    |     0.005906s     |             2.20            |    2.28   |      60.0MB     |
+
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-FreqFFPN  0.8907  | 0.8418 |  0.8643  | 0.8834 | 0.6325 |  0.5928  | 66.8  | 15,401,548 |     0.005697s     |    0.274473s    |     0.004877s     |             3.51            |    3.64   |      58.5MB     |
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-GLSA  0.8972  | 0.8508 |  0.8722  | 0.8869 | 0.6271 |  0.591969.1  | 15,981,326 |     0.005685s     |    0.273003s    |     0.005825s     |             3.51            |    3.66   |      59.7MB     |  
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-CGAFusion 0.8799  | 0.8712 |  0.8753  | 0.8842 | 0.6301 |  0.5941   69.9  | 16,014,225 |     0.005477s     |    0.278630s    |     0.005275s     |             3.46            |    3.59   |      59.7MB     |
@@ -80,6 +86,21 @@ aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-BackboneSEFN0.8
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CAM20.8713  | 0.8489 |  0.8594  | 0.8794 | 0.6471 |  0.6000  | 101.7  | 16,082,281 |     0.010745s     |    0.466025s    |     0.011194s     |             2.05            |    2.15   |      59.9MB     
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-SEFN0.8929  | 0.8379 |  0.8642  | 0.8764 | 0.6484 |  0.5995  |115.8  | 18,067,048 |     0.009267s     |    0.467646s    |     0.005409s     |             2.07            |    2.14   |      63.7MB     |
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-SDFM 0.8546  | 0.8380 |  0.8445  | 0.8689 | 0.6357 |  0.5829  | 0.0   | 16,348,008 |     0.008756s     |    0.451648s    |     0.006082s     |             2.14            |    2.21   |      60.4MB     |
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-IIA0.8453  | 0.8296 |  0.8371  | 0.8557 | 0.6491 |  0.5906  |102.6  | 16,147,844 |     0.009899s     |    0.489969s    |     0.011291s     |             1.96            |    2.04   |      60.0MB     
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-FusionConvMSAA0.8757  | 0.8532 |  0.8641  | 0.8896 | 0.6603 |  0.6109  | 106.7  | 16,474,058 |     0.009545s     |    0.445412s    |     0.006066s     |             2.17            |    2.25   |      60.6MB     |
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-FusionBiFPN0.8876  | 0.8337 |  0.8582  | 0.8788 | 0.6614 |  0.6087  |101.7  | 16,082,282 |     0.008873s     |    0.437078s    |     0.005852s     |             2.21            |    2.29   |      59.9MB    
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-ConvMixFusion 0.8658  | 0.8415 |  0.8532  | 0.8708 | 0.6499 |  0.6002  | 111.6  | 16,840,616 |     0.009127s     |    0.451185s    |     0.006170s     |             2.14            |    2.22   |      61.3MB     |
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CENFusion 0.8717  | 0.8596 |  0.8652  | 0.8840 | 0.6646 |  0.6081  |101.7  | 16,082,280 |     0.010435s     |    0.433990s    |     0.005133s     |             2.22            |    2.30   |     122.6MB     |
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CDDFusion
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-MetaFeatureFusion 0.8851  | 0.8379 |  0.8604  | 0.8791 | 0.6515 |  0.6042  |162.1  | 20,802,664 |     0.009286s     |    0.513563s    |     0.010397s     |             1.88            |    1.95   |      68.9MB     |
+暂定 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CMXFusion2  0.8898  | 0.8634 |  0.8757  | 0.8931 | 0.6760 |  0.6128  |105.2  | 17,136,490 |     0.009318s     |    0.460045s    |     0.005280s     |             2.11            |    2.17   |      61.9MB     
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-MambaDFuseBlock 0.8657  | 0.8693 |  0.8673  | 0.8837 | 0.6585 |  0.6089   108.5  | 16,739,176 |     0.008971s     |    0.440144s    |     0.005038s     |             2.20            |    2.27   |      61.1MB     |
+##aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock  0.8847  | 0.8557 |  0.8698  | 0.8894 | 0.6648 |  0.6116  | 102.6  | 16,229,864 |     0.009178s     |    0.443030s    |     0.006371s     |             2.18            |    2.26   |      60.2MB     |
+
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-SuperYOLOFusion 0.8853  | 0.8652 |  0.8749  | 0.8871 | 0.6736 |  0.6102  |106.0  | 16,460,392 |     0.009841s     |    0.451396s    |     0.007320s     |             2.13            |    2.22   |      60.6MB     |
+
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-SigmaFusionBlock  0.8800  | 0.8604 |  0.8696  | 0.8940 | 0.6530 |  0.6094  | 102.0  | 16,163,560 |     0.009659s     |    0.491866s    |     0.006728s     |             1.97            |    2.03   |      60.0MB     |
+aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-TarDALFusion3   0.8898  | 0.8650 |  0.8768  | 0.8872 | 0.6769 |  0.6123  |111.3  | 16,824,040 |     0.010173s     |    0.456379s    |     0.006432s     |             2.11            |    2.19   |      61.3MB     
 
 
 
