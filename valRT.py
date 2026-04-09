@@ -21,7 +21,7 @@ def banner(msg="论文上的数据以以下结果为准"):
 
 
 if __name__ == "__main__":
-    model_name = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance2"
+    model_name = "rtdetr-r18-mm-mid-aifi-dattention"
     model_path = Path(f"ResTest/{model_name}/weights/best.pt")
 
     model = RTDETRMM(str(model_path))
