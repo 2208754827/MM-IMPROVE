@@ -2,6 +2,8 @@
 # 链接: https://ieeexplore.ieee.org/abstract/document/10820553/
 # 模块作用: 双路稀疏交叉注意力，利用多尺度上下文对齐跨模态关键 token，以 Top-k 稀疏匹配突出高相关区域融合并输出单路表征。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 

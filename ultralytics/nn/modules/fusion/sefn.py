@@ -2,6 +2,8 @@
 # 链接: https://arxiv.org/abs/2411.06318
 # 模块作用: 双路增强的前馈网络，以辅路空间上下文引导主路门控，使单路输出显式注入跨模态/跨层信息。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 

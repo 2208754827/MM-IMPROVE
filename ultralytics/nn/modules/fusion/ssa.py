@@ -2,6 +2,8 @@
 # 链接: https://arxiv.org/pdf/2412.20066
 # 模块作用: 在单路融合特征上进行分组通道洗牌与门控，挖掘不同展开序列间的互补性并抑制冗余。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 

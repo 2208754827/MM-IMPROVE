@@ -2,6 +2,7 @@
 # 链接: https://arxiv.org/abs/2412.10116
 # 模块作用: 对融合后特征进行频域高频感知与空间/通道门控，突出细粒度目标与边缘信息，抑制跨模态低频冗余。
 
+from __future__ import annotations
 import torch
 import torch.nn as nn
 

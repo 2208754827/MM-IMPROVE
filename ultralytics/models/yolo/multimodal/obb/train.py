@@ -1,5 +1,6 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 license
 
+from __future__ import annotations
 from copy import copy
 from typing import Optional
 

@@ -2,6 +2,8 @@
 # 链接: https://ieeexplore.ieee.org/abstract/document/10820553/
 # 模块作用: 在融合后特征上按通道分组施加 CBAM 式通道与空间瓶颈注意力，增强跨模态一致区域并抑制噪声与冲突。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 

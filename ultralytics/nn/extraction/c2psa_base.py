@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 C2PSA Extraction - Base Components
 存放所有C2PSA变体所需的基础组件和注意力模块

@@ -9,6 +9,7 @@
 # Build the TinyViT Model
 # --------------------------------------------------------
 
+from __future__ import annotations
 import itertools
 from typing import List, Optional, Tuple, Union
 

@@ -2,6 +2,8 @@
 # 链接: https://arxiv.org/pdf/2405.14343
 # 模块作用: 在融合后单路特征上执行频域选择性增强，抑制跨模态冗余并突出判别性纹理/结构。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 

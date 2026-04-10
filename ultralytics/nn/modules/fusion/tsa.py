@@ -2,6 +2,7 @@
 # 链接: https://www.sciencedirect.com/science/article/pii/S089360802500190X
 # 模块作用: 在单路融合特征中以 Top-k 令牌选择约束注意力，仅保留最相关 token 交互以提升效率与鲁棒性。
 
+from __future__ import annotations
 import torch
 import torch.nn as nn
 

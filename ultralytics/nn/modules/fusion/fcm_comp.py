@@ -2,6 +2,8 @@
 # 链接: https://arxiv.org/pdf/2504.20670
 # 模块作用: 对单路融合特征进行主/辅支路互补映射，结合通道与空间注意力强化互补信息并保持通道一致。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 

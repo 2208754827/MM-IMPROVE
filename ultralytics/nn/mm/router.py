@@ -2,6 +2,8 @@
 # Supports YOLO and RTDETR with zero-copy tensor routing
 # Version: v1.0
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 from ultralytics.utils import LOGGER

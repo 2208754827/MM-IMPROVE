@@ -2,6 +2,8 @@
 # 链接: https://arxiv.org/pdf/2405.10530
 # 模块作用: 双路融合后以多尺度卷积与通道/空间注意力聚合，压缩跨模态冗余并输出单路判别表征。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 

@@ -2,6 +2,8 @@
 # 链接: https://ieeexplore.ieee.org/abstract/document/10969832
 # 模块作用: 在单路融合特征上沿 H/W 方向进行信息整合与加权，强化方向性结构一致性并减弱跨模态错配。
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
