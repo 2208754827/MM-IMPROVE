@@ -3,7 +3,7 @@ import torch, sys, torch.nn as nn
 sys.path.insert(0, 'd:/BaiduNetdiskDownload/MutilModel_3398475911')
 import torch_pruning as tp
 
-WEIGHTS = 'ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
+WEIGHTS = 'D:/JiQI/MM-experiment/ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
 ckpt = torch.load(WEIGHTS, map_location='cpu')
 model = ckpt['model'].float().train()
 
@@ -55,7 +55,7 @@ else:
 import torch, sys, torch.nn as nn
 sys.path.insert(0, 'd:/BaiduNetdiskDownload/MutilModel_3398475911')
 
-WEIGHTS = 'ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
+WEIGHTS = 'D:/JiQI/MM-experiment/ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
 ckpt = torch.load(WEIGHTS, map_location='cpu')
 model = ckpt['model'].float()
 
@@ -125,7 +125,7 @@ import torch, sys, torch.nn as nn
 sys.path.insert(0, 'd:/BaiduNetdiskDownload/MutilModel_3398475911')
 import torch_pruning as tp
 
-WEIGHTS = 'ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
+WEIGHTS = 'D:/JiQI/MM-experiment/ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
 
 ckpt = torch.load(WEIGHTS, map_location='cpu')
 model = ckpt['model'].float()
@@ -183,7 +183,7 @@ import torch, sys, torch.nn as nn
 sys.path.insert(0, 'd:/BaiduNetdiskDownload/MutilModel_3398475911')
 import torch_pruning as tp
 
-WEIGHTS = 'ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
+WEIGHTS = 'D:/JiQI/MM-experiment/ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock/weights/best.pt'
 
 ckpt = torch.load(WEIGHTS, map_location='cpu')
 model = ckpt['model'].float()

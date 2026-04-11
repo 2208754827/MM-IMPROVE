@@ -12,4 +12,4 @@ if __name__ == '__main__':
                 cache=True,
                 # amp = False,
                 # exist_ok=True,
-                project='ResTest',name='test/YOLOMM_seg')
+                project='D:/JiQI/MM-experiment/ResTest',name='test/YOLOMM_seg')

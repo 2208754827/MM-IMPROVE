@@ -1,4 +1,4 @@
-﻿import os
+import os
 import gc
 import warnings
 
@@ -39,7 +39,7 @@ def main():
         
         amp=amp1,
         deterministic=False,
-        project="ResTest",
+        project="D:/JiQI/MM-experiment/ResTest",
         name=model_name1,
         resume=False,
         workers=workers,
@@ -66,7 +66,7 @@ def main():
         
         amp=amp2,
         deterministic=False,
-        project="ResTest",
+        project="D:/JiQI/MM-experiment/ResTest",
         name=model_name2,
         resume=False,
         workers=workers,

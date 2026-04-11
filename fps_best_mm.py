@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import time
 from pathlib import Path
 
@@ -22,7 +22,7 @@ def parse_args():
         "--model-name",
         type=str,
         default=DEFAULT_MODEL_NAME,
-        help="Model name under ResTest/<name>/weights/best.pt, or a direct .pt path",
+        help="Model name under D:/JiQI/MM-experiment/ResTest/<name>/weights/best.pt, or a direct .pt path",
     )
     parser.add_argument(
         "--data",
@@ -304,7 +304,7 @@ def resolve_weight_path(args):
     if p.suffix.lower() == ".pt":
         return p
 
-    return Path("ResTest") / name / "weights" / "best.pt"
+    return Path("D:/JiQI/MM-experiment/ResTest") / name / "weights" / "best.pt"
 
 
 def _one_line(mode, weights_name, args, stats, x_modality=None, xch=None):

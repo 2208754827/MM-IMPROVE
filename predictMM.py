@@ -4,13 +4,13 @@
 
 from doctest import debug
 from ultralytics import YOLOMM
-model = YOLOMM('/home/zhizi/work/multimodel/ultralyticmm/ultralyticsmm/ResTest/YOLOMM-LST/weights/best.pt')
+model = YOLOMM('D:/JiQI/MM-experiment/ResTest/YOLOMM-LST/weights/best.pt')
 
 # 测试双模态预测（新API - 显式rgb_source/x_source）
 print("=== 测试双模态预测 ===")
 model.predict(rgb_source='/home/zhizi/work/multimodel/ultralyticmm/00002_rgb.png',
               x_source='/home/zhizi/work/multimodel/ultralyticmm/00002_ir.png',
-              project ='ResTest',
+              project ='D:/JiQI/MM-experiment/ResTest',
               name='YOLOMM-LST_dual_modal',
               save=True,
               exist_ok=True,
@@ -21,7 +21,7 @@ model.predict(rgb_source='/home/zhizi/work/multimodel/ultralyticmm/00002_rgb.png
 print("\n=== 测试单模态RGB预测 ===")
 model.predict(rgb_source='/home/zhizi/work/multimodel/ultralyticmm/00002_rgb.png',
               x_source=None,
-              project ='ResTest',
+              project ='D:/JiQI/MM-experiment/ResTest',
               name='YOLOMM-LST_single_rgb',
               save=True,
               exist_ok=True,
@@ -32,7 +32,7 @@ model.predict(rgb_source='/home/zhizi/work/multimodel/ultralyticmm/00002_rgb.png
 print("\n=== 测试单模态红外预测 ===")
 model.predict(rgb_source=None,
               x_source='/home/zhizi/work/multimodel/ultralyticmm/00002_ir.png',
-              project ='ResTest',
+              project ='D:/JiQI/MM-experiment/ResTest',
               name='YOLOMM-LST_single_ir',
               save=True,
               exist_ok=True,

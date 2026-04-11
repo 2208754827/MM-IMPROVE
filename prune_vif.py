@@ -12,8 +12,8 @@ VIF (Visible-Infrared Fusion) 双分支目标检测模型剪枝脚本 v9
 6. 结束时打印 Markdown 表格剪枝指标
 
 使用方法:
-    python prune_vif.py --weights ResTest/xxx/weights/best.pt --prune-ratio 0.3
-    python prune_vif.py --weights ResTest/xxx/weights/best.pt --prune-ratio 0.3 --iterations 3
+    python prune_vif.py --weights D:/JiQI/MM-experiment/ResTest/xxx/weights/best.pt --prune-ratio 0.3
+    python prune_vif.py --weights D:/JiQI/MM-experiment/ResTest/xxx/weights/best.pt --prune-ratio 0.3 --iterations 3
 """
 
 import argparse
@@ -865,7 +865,7 @@ def main():
                         help="剪枝比例（默认 0.3）")
     parser.add_argument("--iterations", type=int, default=1,
                         help="迭代剪枝轮数（默认 1），建议剪不够时设为 3")
-    parser.add_argument("--output", type=str, default="pruned_model.pt",
+    parser.add_argument("--output", type=str, default="D:/BaiduNetdiskDownload/MutilModel_3398475911/prune_outputs",
                         help="输出路径：可传文件路径(.pt)或文件夹路径，"
                              "传文件夹时自动命名为 pruned_<原文件名>.pt")
     parser.add_argument("--device", type=str, default="cuda",

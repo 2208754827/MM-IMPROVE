@@ -2,7 +2,7 @@
 #使用方法查看 wiki目录中的vis_usage.md文件
 from ultralytics import YOLOMM
 
-model = YOLOMM('/home/zhizi/work/multimodel/ultralyticmm/ultralyticsmm/ResTest/Repo/YOLOMM/weights/best.pt')
+model = YOLOMM('D:/JiQI/MM-experiment/ResTest/Repo/YOLOMM/weights/best.pt')
 model.vis(
           rgb_source = '/home/zhizi/work/multimodel/ultralyticmm/00002_rgb.png',  # rgb_source：RGB 输入
           x_source = '/home/zhizi/work/multimodel/ultralyticmm/00002_ir.png',  # x_source：X 模态输入
@@ -13,5 +13,5 @@ model.vis(
           alg='gradcam',
         #   split=True,
           save=True,
-          project='ResTest/vis',
+          project='D:/JiQI/MM-experiment/ResTest/vis',
           name='Vis')

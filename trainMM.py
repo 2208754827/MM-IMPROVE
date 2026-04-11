@@ -11,4 +11,4 @@ if __name__ == '__main__':
                 # modality='X', 模态消融参数 非必要不得开启
                 # cache=True,
                 exist_ok=True,
-                project='ResTest',name='Test/YOLOMM')
+                project='D:/JiQI/MM-experiment/ResTest',name='Test/YOLOMM')

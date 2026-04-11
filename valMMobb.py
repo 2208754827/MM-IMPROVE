@@ -4,12 +4,12 @@
 from ultralytics import YOLOMM
 
 if __name__ == "__main__":
-    model = YOLOMM('/home/zhizi/work/multimodel/ultralyticmm/ultralyticsmm/ResTest/Test/OBB_MM/weights/best.pt')
+    model = YOLOMM('D:/JiQI/MM-experiment/ResTest/Test/OBB_MM/weights/best.pt')
     model.val(
         data='/home/zhizi/work/multimodel/ultralyticmm/datasets/obb/obb.yaml',
         split='val',
         device='0',
         # modality='x',  # 模态消融参数，非必要不要开启
-        project='ResTest',
+        project='D:/JiQI/MM-experiment/ResTest',
         name='Val_OBB_MM',
     )

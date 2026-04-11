@@ -22,7 +22,7 @@ def banner(msg="论文上的数据以以下结果为准"):
 
 if __name__ == "__main__":
     model_path = "D:\BaiduNetdiskDownload\MutilModel_3398475911\prune_outputs\pruned_r0.5_0410_1911.pt"
-    """ model_path = Path(f"ResTest/{model_name}/weights/best.pt") """
+    """ model_path = Path(f"D:/JiQI/MM-experiment/ResTest/{model_name}/weights/best.pt") """
 
     model = RTDETRMM(str(model_path))
 

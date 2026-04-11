@@ -1,4 +1,4 @@
-﻿import traceback
+import traceback
 from ultralytics import RTDETRMM
 
 model_path = r'ultralytics/cfg/models/rtmm/r18/aifi-dattention-CSP-FreqSpatial.yaml'
@@ -16,7 +16,7 @@ try:
         amp=False,
         save=False,
         val=False,
-        project='ResTest',
+        project='D:/JiQI/MM-experiment/ResTest',
         name='debug_freqspatial',
     )
     print('TRAIN_OK')
