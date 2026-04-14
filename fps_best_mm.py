@@ -5,7 +5,10 @@ from pathlib import Path
 import yaml
 
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
-DEFAULT_MODEL_NAME = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite"
+#D:\BaiduNetdiskDownload\MutilModel_3398475911\runs_finetune\improve_0.5\weights\best.pt
+#D:\JiQI\MM-experiment\ResTest\aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock\weights\best.pt
+DEFAULT_MODEL_NAME = r"D:\JiQI\MM-experiment\ResTest\aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock\weights\best.pt"
+AUTO_BATCH_CANDIDATES = (1, 2, 4, 8, 16, 32)
 
 
 def parse_args():
@@ -33,8 +36,14 @@ def parse_args():
     parser.add_argument("--split", type=str, default="test", choices=["train", "val", "test"], help="Dataset split")
     parser.add_argument("--device", type=str, default="0", help="Device, e.g. 0/cuda:0/cpu")
     parser.add_argument("--imgsz", type=int, default=640, help="Inference image size")
-    parser.add_argument("--batch", type=int, default=1, help="Batch size for paper-style infer-only benchmark")
-    parser.add_argument("--half", action="store_true", help="Use fp16 (CUDA only)")
+    parser.add_argument(
+        "--batch",
+        type=int,
+        default=0,
+        help="Batch size for paper-style infer-only benchmark. 0 means auto-select the highest-throughput batch.",
+    )
+    parser.add_argument("--half", dest="half", action="store_true", help="Use fp16 (CUDA only)")
+    parser.add_argument("--no-half", dest="half", action="store_false", help="Disable fp16")
     parser.add_argument("--warmup", type=int, default=50, help="Warmup steps")
     parser.add_argument("--max-samples", type=int, default=300, help="Benchmark steps")
     parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold (for e2e mode)")
@@ -51,6 +60,7 @@ def parse_args():
         default="",
         help="Append compact results to a text file (optional).",
     )
+    parser.set_defaults(half=True)
     return parser.parse_args()
 
 
@@ -246,6 +256,63 @@ def benchmark_paper_forward(model, batches, warmup, steps, device):
     }
 
 
+def select_best_paper_batch(model, pairs, imgsz, warmup, steps, device, half, x_modality_hint):
+    import torch
+
+    best = None
+    candidates = [b for b in AUTO_BATCH_CANDIDATES if b <= len(pairs)]
+    if not candidates:
+        raise RuntimeError("No usable batch candidates found for paper benchmark.")
+
+    tune_warmup = min(max(0, warmup), 10)
+    tune_steps = min(max(1, steps), 20)
+
+    for batch in candidates:
+        try:
+            batches, _, x_modality, xch = build_batches_for_paper(
+                model=model,
+                pairs=pairs,
+                imgsz=imgsz,
+                batch=batch,
+                warmup=tune_warmup,
+                steps=tune_steps,
+                device=device,
+                half=half,
+                x_modality_hint=x_modality_hint,
+            )
+            stats = benchmark_paper_forward(
+                model=model,
+                batches=batches,
+                warmup=tune_warmup,
+                steps=tune_steps,
+                device=device,
+            )
+            if best is None or stats["fps"] > best["fps"]:
+                best = {
+                    "batch": batch,
+                    "fps": stats["fps"],
+                    "x_modality": x_modality,
+                    "xch": xch,
+                }
+        except torch.cuda.OutOfMemoryError:
+            if device.type == "cuda" and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            continue
+        except RuntimeError as e:
+            if "out of memory" in str(e).lower():
+                if device.type == "cuda" and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                continue
+            raise
+
+        if device.type == "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    if best is None:
+        raise RuntimeError("Auto batch selection failed because all candidate batches ran out of memory.")
+    return best
+
+
 def benchmark_e2e_predict(model, pairs, warmup, max_samples, device, imgsz, half, conf):
     total_need = min(len(pairs), max(1, warmup + max_samples))
     pairs = pairs[:total_need]
@@ -318,6 +385,13 @@ def _one_line(mode, weights_name, args, stats, x_modality=None, xch=None):
     )
 
 
+def _mode_label(mode):
+    return {
+        "paper": "infer-only",
+        "e2e": "end-to-end",
+    }.get(mode, mode)
+
+
 def print_report(args, weights, rgb_dir, x_dir, pair_count, paper_stats=None, e2e_stats=None, x_modality=None, xch=None):
     weights = Path(weights)
     print("RTDETRMM FPS Benchmark")
@@ -329,14 +403,24 @@ def print_report(args, weights, rgb_dir, x_dir, pair_count, paper_stats=None, e2
     print(f"X dir        : {x_dir}")
     print(f"Paired images: {pair_count}")
     print("-" * 90)
+    print("Notes        : infer-only excludes image IO, pairing, preprocess, and postprocess.")
+    print("               end-to-end includes the full predict pipeline.")
+    print("-" * 90)
 
     if paper_stats is not None:
         print(_one_line("paper", weights.name, args, paper_stats, x_modality=x_modality, xch=xch))
-        print(f"PAPER_FPS={paper_stats['fps']:.2f} | PAPER_LATENCY_MS={paper_stats['latency_img_ms']:.3f}")
+        print(
+            f"INFER_ONLY_FPS={paper_stats['fps']:.2f} | "
+            f"INFER_ONLY_LATENCY_MS={paper_stats['latency_img_ms']:.3f}"
+        )
+        print(f"Selected paper batch = {paper_stats['batch']}")
 
     if e2e_stats is not None:
         print(_one_line("e2e", weights.name, args, e2e_stats))
-        print(f"E2E_FPS={e2e_stats['fps']:.2f} | E2E_LATENCY_MS={e2e_stats['latency_img_ms']:.3f}")
+        print(
+            f"E2E_FPS={e2e_stats['fps']:.2f} | "
+            f"E2E_LATENCY_MS={e2e_stats['latency_img_ms']:.3f}"
+        )
 
 
 def append_report_txt(path, args, weights_name, paper_stats=None, e2e_stats=None, x_modality=None, xch=None):
@@ -345,14 +429,14 @@ def append_report_txt(path, args, weights_name, paper_stats=None, e2e_stats=None
 
     if paper_stats is not None:
         lines.append(
-            f"{ts}\tpaper\t{weights_name}\t{args.split}\t{args.device}\t{paper_stats['batch']}\t"
+            f"{ts}\t{_mode_label('paper')}\t{weights_name}\t{args.split}\t{args.device}\t{paper_stats['batch']}\t"
             f"{paper_stats['warmup_steps']}\t{paper_stats['bench_steps']}\t{x_modality}/{xch}ch\t"
             f"{paper_stats['latency_img_ms']:.3f}\t{paper_stats['fps']:.2f}\n"
         )
 
     if e2e_stats is not None:
         lines.append(
-            f"{ts}\te2e\t{weights_name}\t{args.split}\t{args.device}\t1\t"
+            f"{ts}\t{_mode_label('e2e')}\t{weights_name}\t{args.split}\t{args.device}\t1\t"
             f"{e2e_stats['warmup_steps']}\t{e2e_stats['bench_steps']}\t-\t"
             f"{e2e_stats['latency_img_ms']:.3f}\t{e2e_stats['fps']:.2f}\n"
         )
@@ -372,8 +456,8 @@ def main():
     data_yaml = Path(args.data)
     if not data_yaml.exists():
         raise FileNotFoundError(f"data.yaml not found: {data_yaml}")
-    if args.batch < 1:
-        raise ValueError("--batch must be >= 1")
+    if args.batch < 0:
+        raise ValueError("--batch must be >= 0")
 
     pairs, rgb_dir, x_dir = collect_pairs(data_yaml, args.split)
     if not pairs:
@@ -405,6 +489,20 @@ def main():
     xch = None
 
     if args.mode in {"paper", "both"}:
+        if args.batch == 0:
+            best_batch = select_best_paper_batch(
+                model=model,
+                pairs=pairs,
+                imgsz=args.imgsz,
+                warmup=args.warmup,
+                steps=args.max_samples,
+                device=device,
+                half=args.half,
+                x_modality_hint=x_modality_hint,
+            )
+            args.batch = int(best_batch["batch"])
+            print(f"Auto-selected paper batch={args.batch} for highest measured throughput.")
+
         batches, used_images, x_modality, xch = build_batches_for_paper(
             model=model,
             pairs=pairs,

@@ -170,3 +170,29 @@ pnnx*
 
 M3FD/
 runs/
+val/
+
+# 编译及缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+.idea/
+.vscode/
+.qoder/
+
+# 训练及实验结果 (体积巨大)
+runs_finetune/
+prune_outputs/
+val/
+val_compare/
+ReTest/
+
+# 模型权重文件
+MODEL/
+*.pth
+*.onnx
+*.weights
+*.engine
+
+# 数据集 (如果你本地有数据集文件夹，比如叫 data/images)
+# datasets/

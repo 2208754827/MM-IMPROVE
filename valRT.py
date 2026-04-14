@@ -9,6 +9,10 @@ from pathlib import Path
 from ultralytics import RTDETRMM
 from ultralytics.utils.torch_utils import model_info
 
+MODEL_PATH = r"D:\BaiduNetdiskDownload\MutilModel_3398475911\runs_finetune\improve_0.5\weights\best.pt"
+DATA_PATH = r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml"
+DEVICE = 0
+
 
 def get_weight_size(path):
     stats = os.stat(path)
@@ -21,15 +25,19 @@ def banner(msg="论文上的数据以以下结果为准"):
 
 
 if __name__ == "__main__":
-    model_path = "D:\BaiduNetdiskDownload\MutilModel_3398475911\prune_outputs\pruned_r0.5_0410_1911.pt"
-    """ model_path = Path(f"D:/JiQI/MM-experiment/ResTest/{model_name}/weights/best.pt") """
+    if not MODEL_PATH.strip():
+        raise FileNotFoundError("请先在 MODEL_PATH 里填入要验证的模型路径。")
+
+    model_path = Path(MODEL_PATH).expanduser()
+    if not model_path.exists():
+        raise FileNotFoundError(f"MODEL_PATH does not exist: {model_path}")
 
     model = RTDETRMM(str(model_path))
 
     result = model.val(
-        data=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml",
+        data=DATA_PATH,
         split="test",
-        device=0,
+        device=DEVICE,
         project="val",
         name="RTDETRval",
         workers=4,
@@ -55,7 +63,7 @@ if __name__ == "__main__":
         "前处理时间/一张图",
         "推理时间/一张图",
         "后处理时间/一张图",
-        "FPS(前处理+模型推理+后处理)",
+        "FPS(前处理+推理+后处理)",
         "FPS(推理)",
         "Model File Size",
     ]
@@ -127,5 +135,4 @@ if __name__ == "__main__":
         banner(f"结果已保存至 {save_path} ...")
 
     else:
-        print(f"当前模型任务是: {model.task}，不是 detect，所以没有输出 box 指标表格。")
-
+        print(f"当前模型任务是 {model.task}，不是 detect，所以没有输出 box 指标表格。")

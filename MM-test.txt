@@ -93,6 +93,7 @@ aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-ConvMixFusion 0
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CENFusion 0.8717  | 0.8596 |  0.8652  | 0.8840 | 0.6646 |  0.6081  |101.7  | 16,082,280 |     0.010435s     |    0.433990s    |     0.005133s     |             2.22            |    2.30   |     122.6MB     |
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CDDFusion
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-MetaFeatureFusion 0.8851  | 0.8379 |  0.8604  | 0.8791 | 0.6515 |  0.6042  |162.1  | 20,802,664 |     0.009286s     |    0.513563s    |     0.010397s     |             1.88            |    1.95   |      68.9MB     |
+fps 69.03
 暂定 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CMXFusion2  0.8898  | 0.8634 |  0.8757  | 0.8931 | 0.6760 |  0.6128  |105.2  | 17,136,490 |     0.009318s     |    0.460045s    |     0.005280s     |             2.11            |    2.17   |      61.9MB     
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-MambaDFuseBlock 0.8657  | 0.8693 |  0.8673  | 0.8837 | 0.6585 |  0.6089   108.5  | 16,739,176 |     0.008971s     |    0.440144s    |     0.005038s     |             2.20            |    2.27   |      61.1MB     |
 ##aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-PIAFusionBlock  0.8847  | 0.8557 |  0.8698  | 0.8894 | 0.6648 |  0.6116  | 102.6  | 16,229,864 |     0.009178s     |    0.443030s    |     0.006371s     |             2.18            |    2.26   |      60.2MB     |
@@ -102,5 +103,22 @@ aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-SuperYOLOFusion
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-SigmaFusionBlock  0.8800  | 0.8604 |  0.8696  | 0.8940 | 0.6530 |  0.6094  | 102.0  | 16,163,560 |     0.009659s     |    0.491866s    |     0.006728s     |             1.97            |    2.03   |      60.0MB     |
 aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-TarDALFusion3   0.8898  | 0.8650 |  0.8768  | 0.8872 | 0.6769 |  0.6123  |111.3  | 16,824,040 |     0.010173s     |    0.456379s    |     0.006432s     |             2.11            |    2.19   |      61.3MB     
 
+#剪枝成功
+fps 78.27
+0.5的剪枝率  0.8947  | 0.8670 |  0.8805  | 0.8959 | 0.6601 |  0.6113  | 74.6  | 11,374,424 |     0.009802s     |    0.403469s    |     0.005284s     |           2.39          |    2.48   |      50.9MB     
 
 
+
+
+对，你说得对，论文里要明确写 DepGraph，不能只笼统写“依赖图”。
+
+更准确的论文表述可以写成：
+
+本项目采用的是一种基于 Torch-Pruning 中 DepGraph 机制的结构化迭代剪枝方法，
+用于压缩双模态红外-可见光目标检测模型。针对基于 RT-DETR-r18 的双输入网络，剪枝时以 (vis, ir) 
+作为示例输入，通过 DepGraph 对双分支 backbone、跨模态融合模块 PIAFusionBlock 以及后续检测分
+支之间的结构依赖关系进行追踪，在保证通道裁剪后网络仍可正确传播的前提下，结合一阶 Taylor Expansion
+ 重要性评估，对 backbone 及部分可安全裁剪的 neck 卷积层进行多轮迭代式结构化通道剪枝。同时，
+ 对 DAttention 和 RTDETRDecoder 等对结构敏感的关键模块进行保护，避免剪枝破坏检测头功能。
+ 剪枝完成后，再通过恢复训练对模型进行微调，以弥补压缩带来的性能损失。这样写会更符合论文规范，
+ 因为它明确突出了你的方法核心是 DepGraph + Taylor + iterative structured pruning
