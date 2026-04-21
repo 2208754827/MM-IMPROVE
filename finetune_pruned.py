@@ -4,23 +4,25 @@
 import os
 import sys
 import time
+from pathlib import Path
+from shutil import copy2
 
-# 1. 在导入任何库之前，先解决环境报错和进度条问题
-os.environ["TQDM_DISABLE"] = "True"                 # 禁用进度条
-os.environ["YOLO_VERBOSE"] = "False"                # 禁用冗余日志
-os.environ["ALBUMENTATIONS_DISABLE_VERSION_CHECK"] = "1" # 禁用那个 SSL 检查报错
+# 1. Environment settings before importing other libraries
+os.environ["TQDM_DISABLE"] = "True"
+os.environ["YOLO_VERBOSE"] = "False"
+os.environ["ALBUMENTATIONS_DISABLE_VERSION_CHECK"] = "1"
 
-# 2. 彻底解决中文乱码：不管系统环境，强制 print 使用 utf-8 并刷新
+
 def utf8_print(msg):
     sys.stdout.buffer.write((msg + '\n').encode('utf-8'))
     sys.stdout.flush()
 
 from ultralytics import RTDETRMM
 
-# ============ 配置区域 ============
+# ============ 閰嶇疆鍖哄煙 ============
 MODEL_PATH = r"prune_outputs\pruned_r0.5_0410_1911.pt"
 DATA_PATH = r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml"
-EPOCHS = 100
+EPOCHS = 30
 BATCH = 1
 IMGSZ = 640
 LR0 = 0.0001
@@ -29,29 +31,29 @@ PROJECT = r"D:\JiQI\MM-experiment\ResTest"
 NAME = "pruned_finetune"
 # =================================
 
-# 3. 定义回调：不仅每轮结束打印，每 500 步也打印一次，让你知道它还活着
+# 3. 瀹氫箟鍥炶皟锛氫笉浠呮瘡杞粨鏉熸墦鍗帮紝姣?500 姝ヤ篃鎵撳嵃涓€娆★紝璁╀綘鐭ラ亾瀹冭繕娲荤潃
 def on_train_batch_end(trainer):
-    # 每 500 步打印一次小进度
+    # Print lightweight progress every 500 iterations.
     if trainer.ni % 500 == 0:
         epoch = trainer.epoch + 1
         steps = trainer.ni % trainer.nb
-        utf8_print(f"[{time.strftime('%H:%M:%S')}] Epoch {epoch} 进度: {steps}/{trainer.nb} 步")
+        utf8_print(f"[{time.strftime('%H:%M:%S')}] Epoch {epoch} progress: {steps}/{trainer.nb} steps")
 
 def on_train_epoch_end(trainer):
     epoch = trainer.epoch + 1
     loss = trainer.loss_items
-    utf8_print(f"--- [{time.strftime('%H:%M:%S')}] Epoch {epoch} 完成！Loss总结: {loss} ---")
+    utf8_print(f"--- [{time.strftime('%H:%M:%S')}] Epoch {epoch} 瀹屾垚锛丩oss鎬荤粨: {loss} ---")
 
 if __name__ == "__main__":
-    utf8_print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [微调] 任务正式启动...")
+    utf8_print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [finetune] training started...")
     
     model = RTDETRMM(MODEL_PATH)
     
-    # 注册回调
+    # 娉ㄥ唽鍥炶皟
     model.add_callback("on_train_batch_end", on_train_batch_end)
     model.add_callback("on_train_epoch_end", on_train_epoch_end)
     
-    utf8_print(f"[微调] 已开启每 500 步自动汇报进度。")
+    utf8_print("[finetune] progress log enabled: every 500 steps.")
 
     model.train(
         data=DATA_PATH,
@@ -65,5 +67,25 @@ if __name__ == "__main__":
         exist_ok=True,
         verbose=False, 
         plots=False,
-        save_period=5
+        save_period=-1
     )
+
+    # Only keep best checkpoint after training.
+    weights_dir = Path(PROJECT) / NAME / "weights"
+    for ckpt in weights_dir.glob("epoch*.pt"):
+        if ckpt.exists():
+            ckpt.unlink()
+    last_pt = weights_dir / "last.pt"
+    if last_pt.exists():
+        last_pt.unlink()
+
+    best_pt = weights_dir / "best.pt"
+    model_dir = Path(__file__).resolve().parent / "MODEL"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    export_path = model_dir / f"{NAME}_best.pt"
+    if best_pt.exists():
+        copy2(best_pt, export_path)
+        utf8_print(f"[finetune] best model copied to: {export_path}")
+    else:
+        utf8_print("[finetune] best.pt not found, skip export.")
+

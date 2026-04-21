@@ -22,7 +22,7 @@ import sys
 import torch
 
 
-DEFAULT_MODEL = r"D:\BaiduNetdiskDownload\MutilModel_3398475911\prune_outputs\pruned_r0.7_0413_1908.pt"
+DEFAULT_MODEL = r"D:\BaiduNetdiskDownload\MutilModel_3398475911\prune_outputs_lamp_only\pruned_lamp_r0.5_0418_0949.pt"
 DEFAULT_DATA = Path(r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml")
 DEFAULT_PROJECT = Path(__file__).resolve().parent / "runs_finetune"
 DEFAULT_EXPECTED_PARAMS = 0
@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--data", default=str(DEFAULT_DATA), help="Dataset yaml path")
     parser.add_argument("--project", default=str(DEFAULT_PROJECT), help="Ultralytics project dir")
-    parser.add_argument("--name", default="improve_0.5", help="Run name. Empty means using the pruned model filename.")
+    parser.add_argument("--name", default="", help="Run name. Empty means using the pruned model filename.")
     parser.add_argument("--epochs", type=int, default=100, help="Training epochs")
     parser.add_argument("--batch", type=int, default=4, help="Batch size")
     parser.add_argument("--imgsz", type=int, default=640, help="Image size")

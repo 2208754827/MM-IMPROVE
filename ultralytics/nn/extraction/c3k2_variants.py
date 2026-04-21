@@ -22,9 +22,9 @@ from ultralytics.nn.public import RelPos2d, RetBlock, HeatBlock, WTConv2d, FMB
 # 从c3k2_base导入所有辅助组件
 from .c3k2_base import (
     # Batch 1 组件
-    C3k_Faster, C3k_PConv, C3k_ODConv, C3k_Faster_EMA,
+    C3k_Faster, C3k_Faster_Rep, C3k_PConv, C3k_ODConv, C3k_Faster_EMA,
     C3k_DBB, C3k_WDBB, C3k_DeepDBB,
-    Faster_Block, Faster_Block_EMA,
+    Faster_Block, Faster_Block_Rep, Faster_Block_EMA,
     Bottleneck_PConv, Bottleneck_ODConv,
     Bottleneck_DBB, Bottleneck_WDBB, Bottleneck_DeepDBB,
     # Batch 2 组件
@@ -96,7 +96,7 @@ from .common_base import AdditiveBlock, AdditiveBlock_CGLU
 
 __all__ = [
     # Batch 1 - 第一批(行639-988)
-    'C3k2_Faster', 'C3k2_PConv', 'C3k2_ODConv', 'C3k2_Faster_EMA',
+    'C3k2_Faster', 'C3k2_RepPConv', 'C3k2_PConv', 'C3k2_ODConv', 'C3k2_Faster_EMA',
     'C3k2_DBB', 'C3k2_WDBB', 'C3k2_DeepDBB',
     # Batch 2 - 第二批(行1111-1407)
     'C3k2_CloAtt', 'C3k2_SCConv', 'C3k2_ScConv',
@@ -132,6 +132,25 @@ class C3k2_Faster(nn.Module):
         self.cv2 = Conv((2 + n) * self.c, c2, 1)
         self.m = nn.ModuleList(
             C3k_Faster(self.c, self.c, 2, shortcut, g) if c3k else Faster_Block(self.c, self.c)
+            for _ in range(n)
+        )
+
+    def forward(self, x):
+        y = list(self.cv1(x).chunk(2, 1))
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))
+
+
+class C3k2_RepPConv(nn.Module):
+    """C3k2 with Rep-PConv Faster blocks."""
+
+    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
+        super().__init__()
+        self.c = int(c2 * e)
+        self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+        self.cv2 = Conv((2 + n) * self.c, c2, 1)
+        self.m = nn.ModuleList(
+            C3k_Faster_Rep(self.c, self.c, 2, shortcut, g) if c3k else Faster_Block_Rep(self.c, self.c)
             for _ in range(n)
         )
 

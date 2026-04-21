@@ -9,7 +9,7 @@ from pathlib import Path
 from ultralytics import RTDETRMM
 from ultralytics.utils.torch_utils import model_info
 
-MODEL_PATH = r"D:\BaiduNetdiskDownload\MutilModel_3398475911\runs_finetune\improve_0.5\weights\best.pt"
+MODEL_PATH = r"D:\JiQI\MM-experiment\ResTest\A-C3k2_PConv\weights\best.pt"
 DATA_PATH = r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml"
 DEVICE = 0
 

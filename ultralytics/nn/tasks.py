@@ -294,6 +294,7 @@ try:
     from ultralytics.nn.extraction.c3k2_variants import (
         # Batch 1
         C3k2_Faster,
+        C3k2_RepPConv,
         C3k2_PConv,
         C3k2_ODConv,
         C3k2_Faster_EMA,
@@ -758,6 +759,9 @@ for _sym in (
     "C3k2_HDRAB",
     "C3k2_RAB",
     "C3k2_LFE",
+    "C3k2_IDWC",
+    "C3k2_IDWB",
+    "C3k2_CAMixer",
 ):
     if _sym not in globals():
         globals()[_sym] = None
@@ -766,7 +770,7 @@ for _sym in (
 if C3K2_EXTRACTION_AVAILABLE:
     C3K2_CLASS = C3K2_CLASS + (
         # Batch 1
-        C3k2_Faster, C3k2_PConv, C3k2_ODConv, C3k2_Faster_EMA,
+        C3k2_Faster, C3k2_RepPConv, C3k2_PConv, C3k2_ODConv, C3k2_Faster_EMA,
         C3k2_DBB, C3k2_WDBB, C3k2_DeepDBB,
         # Batch 2
         C3k2_CloAtt, C3k2_SCConv, C3k2_ScConv,
@@ -798,6 +802,7 @@ if C3K2_EXTRACTION_AVAILABLE:
         C3k2_MutilScaleEdgeInformationEnhance, C3k2_MutilScaleEdgeInformationSelect, C3k2_FFCM,
         C3k2_SMAFB, C3k2_SMAFB_CGLU,
         C3k2_MSM, C3k2_HDRAB, C3k2_RAB, C3k2_LFE,
+        C3k2_IDWC, C3k2_IDWB, C3k2_CAMixer,
     )
 
 # ===== SPPF Variant Class Set =====
@@ -3998,7 +4003,5 @@ def guess_model_task(model):
         "Explicitly define task for your model, i.e. 'task=detect', 'segment', 'classify','pose' or 'obb'."
     )
     return "detect"  # assume detect
-
-
 
 

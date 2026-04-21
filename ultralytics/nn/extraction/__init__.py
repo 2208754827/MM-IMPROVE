@@ -14,6 +14,7 @@ try:
     from .c3k2_variants import (
         # Batch 1
         C3k2_Faster,
+        C3k2_RepPConv,
         C3k2_PConv,
         C3k2_ODConv,
         C3k2_Faster_EMA,
@@ -93,7 +94,7 @@ try:
         C3k2_LFE,
     )
     __all__ += [
-        'C3k2_Faster','C3k2_PConv','C3k2_ODConv','C3k2_Faster_EMA',
+        'C3k2_Faster','C3k2_RepPConv','C3k2_PConv','C3k2_ODConv','C3k2_Faster_EMA',
         'C3k2_DBB','C3k2_WDBB','C3k2_DeepDBB',
         'C3k2_CloAtt','C3k2_SCConv','C3k2_ScConv','C3k2_EMSC','C3k2_EMSCP',
         'C3k2_ContextGuided','C3k2_MSBlock','C3k2_EMBC','C3k2_EMA',

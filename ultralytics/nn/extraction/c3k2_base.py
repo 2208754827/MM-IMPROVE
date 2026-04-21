@@ -21,9 +21,9 @@ import torch.nn.functional as F
 import numpy as np
 import itertools
 import math
-from ultralytics.nn.modules.conv import Conv
+from ultralytics.nn.modules.conv import Conv, RepConv
 from timm.models.layers import DropPath
-from timm.layers import CondConv2d
+from timm.layers import CondConv2d, trunc_normal_
 from einops import rearrange
 from ultralytics.nn.public import (
     RetBlock,
@@ -98,7 +98,7 @@ __all__ = [
     # 注意力机制
     'EMA', 'OD_Attention',
     # 卷积变体
-    'Partial_conv3', 'ODConv2d', 'fuse_conv_bn',
+    'Partial_conv3', 'Partial_conv3_Rep', 'ODConv2d', 'fuse_conv_bn',
     # 重参数化模块
     'DiverseBranchBlock', 'DiverseBranchBlockNOAct',
     'WideDiverseBranchBlock', 'DeepDiverseBranchBlock',
@@ -106,10 +106,10 @@ __all__ = [
     'Bottleneck_PConv', 'Bottleneck_ODConv',
     'Bottleneck_DBB', 'Bottleneck_WDBB', 'Bottleneck_DeepDBB',
     # C3k变体 (Batch 1)
-    'C3k_Faster', 'C3k_PConv', 'C3k_ODConv',
+    'C3k_Faster', 'C3k_Faster_Rep', 'C3k_PConv', 'C3k_ODConv',
     'C3k_Faster_EMA', 'C3k_DBB', 'C3k_WDBB', 'C3k_DeepDBB',
     # Block变体
-    'Faster_Block', 'Faster_Block_EMA',
+    'Faster_Block', 'Faster_Block_Rep', 'Faster_Block_EMA',
     # Batch 2 - 注意力和卷积模块
     'MemoryEfficientSwish', 'AttnMap', 'EfficientAttention',
     'SCConv', 'GroupBatchnorm2d', 'SRU', 'CRU', 'ScConv',
@@ -495,6 +495,14 @@ class Partial_conv3(nn.Module):
         x1 = self.partial_conv3(x1)
         x = torch.cat((x1, x2), 1)
         return x
+
+
+class Partial_conv3_Rep(Partial_conv3):
+    """Partial convolution with a re-parameterizable RepConv mixer."""
+
+    def __init__(self, dim, n_div=4, forward='split_cat'):
+        super().__init__(dim, n_div, forward)
+        self.partial_conv3 = RepConv(self.dim_conv3, self.dim_conv3, k=3, act=False, bn=False)
 
 
 class ODConv2d(nn.Module):
@@ -1217,6 +1225,21 @@ class C3k_Faster(nn.Module):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
 
 
+class C3k_Faster_Rep(nn.Module):
+    """C3k wrapper with Rep-PConv Faster blocks."""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, k=3):
+        super().__init__()
+        c_ = int(c2 * e)
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c1, c_, 1, 1)
+        self.cv3 = Conv(2 * c_, c2, 1)
+        self.m = nn.Sequential(*(Faster_Block_Rep(c_, c_) for _ in range(n)))
+
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
+
+
 class C3k_PConv(nn.Module):
     """使用PConv的C3k."""
     def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, k=3):
@@ -1352,6 +1375,15 @@ class Faster_Block(nn.Module):
         x = self.spatial_mixing(x)
         x = shortcut + self.drop_path(self.layer_scale.unsqueeze(-1).unsqueeze(-1) * self.mlp(x))
         return x
+
+
+class Faster_Block_Rep(Faster_Block):
+    """FasterNet block using Rep-PConv for spatial mixing."""
+
+    def __init__(self, inc, dim, n_div=4, mlp_ratio=2, drop_path=0.1,
+                 layer_scale_init_value=0.0, pconv_fw_type='split_cat'):
+        super().__init__(inc, dim, n_div, mlp_ratio, drop_path, layer_scale_init_value, pconv_fw_type)
+        self.spatial_mixing = Partial_conv3_Rep(dim, n_div, pconv_fw_type)
 
 
 class Faster_Block_EMA(nn.Module):

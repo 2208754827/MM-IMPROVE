@@ -19,8 +19,8 @@ def main():
     from ultralytics import RTDETRMM  
     #
 
-    model_name1 = "rtdetr-r18-mm-mid"
-    model_name2 = "rtdetr-r18-mm-mid-aifi-dattention"
+    model_name1 = "A-C3k2_Faster_CGLU"
+    model_name2 = "A-C3Ghost"
 
     batch1 = 4
     batch2 = 4
