@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "D:\\BaiduNetdiskDownload\\datasets",
+  "weights_dir": "D:\\BaiduNetdiskDownload\\MutilModel_3398475911\\weights",
+  "runs_dir": "D:\\BaiduNetdiskDownload\\MutilModel_3398475911\\runs",
+  "uuid": "43ab1c2fd01c9caea755e0a091e4e53b3f1233d90b278c92daff51e320409a35",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

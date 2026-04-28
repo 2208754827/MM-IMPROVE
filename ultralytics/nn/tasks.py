@@ -129,6 +129,7 @@ from ultralytics.nn.modules import (
     Detect,
     v8Detect,
     DWConv,
+    DSConv,
     DWConvTranspose2d,
     Focus,
     GhostBottleneck,
@@ -2592,6 +2593,7 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
             *SPPF_CLASS,
             # C2PSA 绯诲垪鍦?C2PSA_CLASS 涓粺涓€绠＄悊
             DWConv,
+            DSConv,
             Focus,
             BottleneckCSP,
             C1,
@@ -4003,5 +4005,4 @@ def guess_model_task(model):
         "Explicitly define task for your model, i.e. 'task=detect', 'segment', 'classify','pose' or 'obb'."
     )
     return "detect"  # assume detect
-
 

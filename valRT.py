@@ -9,8 +9,8 @@ from pathlib import Path
 from ultralytics import RTDETRMM
 from ultralytics.utils.torch_utils import model_info
 
-MODEL_PATH = r"D:\JiQI\MM-experiment\ResTest\A-C3k2_PConv\weights\best.pt"
-DATA_PATH = r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml"
+MODEL_PATH = r"D:\JiQI\MM-experiment\ResTest\A-DWConv-C3Ghost\weights\best.pt"
+DATA_PATH = r"D:\BaiduNetdiskDownload\m4FD\M3FD_split\data.yaml"
 DEVICE = 0
 
 

@@ -19,8 +19,8 @@ def main():
     from ultralytics import RTDETRMM  
     #
 
-    model_name1 = "A-C3k2_Faster_CGLU"
-    model_name2 = "A-C3Ghost"
+    model_name1 = "A-DWConv-C3Ghost"
+    model_name2 = "A-GSConv"
 
     batch1 = 4
     batch2 = 4
@@ -32,7 +32,7 @@ def main():
 
     model = RTDETRMM(f"ultralytics/cfg/models/rtmm/r18/{model_name1}.yaml")
     model.train(
-        data=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml",
+        data=r"D:\BaiduNetdiskDownload\m4FD\M3FD_split\data.yaml",
         epochs=150,
         device=0,
         batch=batch1,
@@ -58,7 +58,7 @@ def main():
 
     print(f"[train] start model2={model_name2}, batch={batch2}", flush=True)
     model = RTDETRMM(f"ultralytics/cfg/models/rtmm/r18/{model_name2}.yaml")
-    model.train(
+    """ model.train(
         data=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml",
         epochs=150,
         device=0,
@@ -70,7 +70,7 @@ def main():
         name=model_name2,
         resume=False,
         workers=workers,
-    )
+    ) """
 
 if __name__ == "__main__":
      main()
