@@ -1,0 +1,14 @@
+﻿layer_idx,name,type,metric,channels_orig,channels_pruned,reduced,remain_ratio,reduced_ratio,label
+2,model.2,CSP_MutilScaleEdgeInformationEnhance,hidden_c,64,32,32,0.5,0.5,model.2 CSP_MutilScaleEdgeInformationEnhance
+4,model.4,CSP_MutilScaleEdgeInformationEnhance,hidden_c,128,64,64,0.5,0.5,model.4 CSP_MutilScaleEdgeInformationEnhance
+7,model.7,CSP_MutilScaleEdgeInformationEnhance,hidden_c,64,32,32,0.5,0.5,model.7 CSP_MutilScaleEdgeInformationEnhance
+9,model.9,CSP_MutilScaleEdgeInformationEnhance,hidden_c,128,64,64,0.5,0.5,model.9 CSP_MutilScaleEdgeInformationEnhance
+12,model.12,CSP_MutilScaleEdgeInformationEnhance,hidden_c,192,96,96,0.5,0.5,model.12 CSP_MutilScaleEdgeInformationEnhance
+14,model.14,CSP_MutilScaleEdgeInformationEnhance,hidden_c,192,96,96,0.5,0.5,model.14 CSP_MutilScaleEdgeInformationEnhance
+16,model.16,TransformerEncoderLayer_DAttention,ffn_hidden,1024,512,512,0.5,0.5,model.16 TransformerEncoderLayer_DAttention
+21,model.21,C3k2_PConv,hidden_c,128,64,64,0.5,0.5,model.21 C3k2_PConv
+26,model.26,C3k2_PConv,hidden_c,128,64,64,0.5,0.5,model.26 C3k2_PConv
+29,model.29,C3k2_PConv,hidden_c,128,64,64,0.5,0.5,model.29 C3k2_PConv
+32,model.32,C3k2_PConv,hidden_c,128,64,64,0.5,0.5,model.32 C3k2_PConv
+38,model.38,C3k2_PConv,hidden_c,64,32,32,0.5,0.5,model.38 C3k2_PConv
+42,model.42,RTDETRDecoder,decoder_hidden,256,256,0,1.0,0.0,model.42 RTDETRDecoder

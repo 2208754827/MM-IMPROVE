@@ -93,6 +93,8 @@ def ensure_torch_pruning():
 
 
 _TP_CACHE = None
+SUPPORTED_FUSION_TYPES = {"PIAFusionBlock", "CMXFusion"}
+CONV_LIKE_TYPES = {"Conv", "DWConv"}
 
 
 def tp_global():
@@ -194,15 +196,21 @@ def load_model(weights: Path, device: torch.device):
 
 def validate_expected_architecture(model: nn.Module) -> None:
     if len(model.model) <= 11:
-        raise RuntimeError("Unexpected model depth for the current RTDETRMM PIAFusionBlock architecture.")
-    fusion = model.model[10]
+        raise RuntimeError("Unexpected model depth for the current RTDETRMM architecture.")
+    fusion_idx, branch_tail_idxs = find_fusion_info(model)
+    if fusion_idx is None:
+        raise RuntimeError(
+            f"Unsupported architecture: no supported fusion block found. Expected one of {sorted(SUPPORTED_FUSION_TYPES)}."
+        )
+    fusion = model.model[fusion_idx]
     fusion_type = type(fusion).__name__
     fusion_from = list(getattr(fusion, "f", [])) if isinstance(getattr(fusion, "f", None), (list, tuple)) else []
-    compress_type = type(model.model[11]).__name__
-    if fusion_type != "PIAFusionBlock" or fusion_from != [4, 9] or compress_type != "Conv":
+    if fusion_from != [4, 9]:
         raise RuntimeError(
-            f"Unexpected architecture: layer10={fusion_type}, from={fusion_from}, layer11={compress_type}"
+            f"Unexpected fusion wiring: layer{fusion_idx}={fusion_type}, from={fusion_from}, branch_tails={sorted(branch_tail_idxs)}"
         )
+    if type(model.model[-1]).__name__ != "RTDETRDecoder":
+        raise RuntimeError(f"Unexpected decoder type: {type(model.model[-1]).__name__}")
 
 
 class ModelWrapper(nn.Module):
@@ -234,6 +242,13 @@ class RootSpec:
 
 
 def find_ignored_layers(model: nn.Module) -> list[nn.Module]:
+    """Collect modules that must NOT be pruned.
+
+    Keep this minimal - only protect the decoder head.
+    DepGraph handles dependency resolution automatically via pruner.step().
+    Over-protecting layers (fusion blocks, DWConv, etc.) severely limits
+    pruning capacity.  This matches the working Taylor pruning strategy.
+    """
     ignored = []
     for module in model.modules():
         cls_name = type(module).__name__
@@ -246,7 +261,7 @@ def find_fusion_info(model: nn.Module) -> tuple[int | None, set[int]]:
     fusion_idx = None
     branch_tail_idxs: set[int] = set()
     for idx, layer in enumerate(model.model):
-        if type(layer).__name__ == "PIAFusionBlock":
+        if type(layer).__name__ in SUPPORTED_FUSION_TYPES:
             fusion_idx = idx
             if isinstance(getattr(layer, "f", None), (list, tuple)):
                 branch_tail_idxs.update(int(x) for x in layer.f if isinstance(x, int) and x >= 0)
@@ -265,6 +280,32 @@ def get_input_layer_indices(layer: nn.Module) -> list[int]:
     return []
 
 
+def get_arch_family(model: nn.Module) -> str:
+    fusion_idx, _ = find_fusion_info(model)
+    if fusion_idx is None:
+        return "unknown"
+    fusion_type = type(model.model[fusion_idx]).__name__
+    if fusion_type == "PIAFusionBlock":
+        return "pia"
+    if fusion_type == "CMXFusion":
+        return "cmx"
+    return "unknown"
+
+
+def has_dwconv_consumer(model: nn.Module, producer_idx: int) -> bool:
+    for idx, layer in enumerate(model.model):
+        if type(layer).__name__ != "DWConv":
+            continue
+        source = getattr(layer, "f", None)
+        if isinstance(source, int) and source == -1 and idx - 1 == producer_idx:
+            return True
+        if isinstance(source, (list, tuple)) and -1 in source and idx - 1 == producer_idx:
+            return True
+        if producer_idx in get_input_layer_indices(layer):
+            return True
+    return False
+
+
 def find_protected_layer_indices(model: nn.Module) -> set[int]:
     protected: set[int] = set()
     fusion_idx, branch_tail_idxs = find_fusion_info(model)
@@ -273,10 +314,10 @@ def find_protected_layer_indices(model: nn.Module) -> set[int]:
         protected.add(fusion_idx)
         protected.update(branch_tail_idxs)
         next_idx = fusion_idx + 1
-        if 0 <= next_idx < len(model.model) and type(model.model[next_idx]).__name__ == "Conv":
+        if 0 <= next_idx < len(model.model) and type(model.model[next_idx]).__name__ in CONV_LIKE_TYPES:
             protected.add(next_idx)
         for idx, layer in enumerate(model.model):
-            if fusion_idx in get_input_layer_indices(layer) and type(layer).__name__ == "Conv":
+            if fusion_idx in get_input_layer_indices(layer) and type(layer).__name__ in CONV_LIKE_TYPES:
                 protected.add(idx)
 
     for idx, layer in enumerate(model.model):
@@ -289,21 +330,43 @@ def find_protected_layer_indices(model: nn.Module) -> set[int]:
     return protected
 
 
-def get_candidate_root_names_for_layer(idx: int, layer: nn.Module, include_neck: bool) -> set[str]:
+def get_candidate_root_names_for_layer(model: nn.Module, idx: int, layer: nn.Module, include_neck: bool) -> set[str]:
     cls_name = type(layer).__name__
-    backbone_conv_layers = {0, 1, 3, 5, 6, 8, 12, 14}
-    backbone_csp_layers = {2, 4, 7, 9, 13, 15}
-    neck_conv_layers = {18, 20, 23, 25, 28, 31, 37}
-    neck_rep_layers = {22, 27, 39}
+    arch_family = get_arch_family(model)
 
-    if idx in backbone_conv_layers and cls_name == "Conv":
-        return {"conv"}
-    if idx in backbone_csp_layers and hasattr(layer, "cv2"):
-        return {"cv2.conv"}
-    if include_neck and idx in neck_conv_layers and cls_name == "Conv":
-        return {"conv"}
-    if include_neck and idx in neck_rep_layers and cls_name == "RepC3":
-        return {"cv3.conv"}
+    if arch_family == "pia":
+        backbone_conv_layers = {0, 1, 3, 5, 6, 8, 12, 14}
+        backbone_csp_layers = {2, 4, 7, 9, 13, 15}
+        neck_conv_layers = {18, 20, 23, 25, 28, 31, 37}
+        neck_rep_layers = {22, 27, 39}
+
+        if idx in backbone_conv_layers and cls_name == "Conv":
+            return {"conv"}
+        if idx in backbone_csp_layers and hasattr(layer, "cv2"):
+            return {"cv2.conv"}
+        if include_neck and idx in neck_conv_layers and cls_name == "Conv":
+            return {"conv"}
+        if include_neck and idx in neck_rep_layers and cls_name == "RepC3":
+            return {"cv3.conv"}
+        return set()
+
+    if arch_family == "cmx":
+        backbone_conv_layers = {0, 1, 3, 5, 6, 8, 11, 13}
+        backbone_csp_layers = {2, 4, 7, 9, 12, 14}
+        neck_conv_layers = {22, 24, 27, 30, 36}
+        neck_c3k2_layers = {21, 26, 29, 32, 38}
+
+        if has_dwconv_consumer(model, idx):
+            return set()
+
+        if idx in backbone_conv_layers and cls_name in CONV_LIKE_TYPES:
+            return {"conv"}
+        if idx in backbone_csp_layers and hasattr(layer, "cv2"):
+            return {"cv2.conv"}
+        if include_neck and idx in neck_conv_layers and cls_name in CONV_LIKE_TYPES:
+            return {"conv"}
+        if include_neck and idx in neck_c3k2_layers and hasattr(layer, "cv2"):
+            return {"cv2.conv"}
     return set()
 
 
@@ -333,7 +396,7 @@ def collect_root_specs(model: nn.Module, pruner, layer_end: int, include_neck: b
         if idx in protected_idxs:
             continue
         layer = model.model[idx]
-        allowed_sub_names = get_candidate_root_names_for_layer(idx, layer, include_neck)
+        allowed_sub_names = get_candidate_root_names_for_layer(model, idx, layer, include_neck)
         if not allowed_sub_names:
             continue
         for sub_name, module in layer.named_modules():
@@ -380,16 +443,9 @@ def pick_pruning_indices(scores: torch.Tensor, n_prune: int) -> list[int]:
     return torch.argsort(scores)[:n_prune].tolist()
 
 
-def l1_scores_for_root(pruner, spec: RootSpec) -> torch.Tensor:
-    tp = tp_global()
-    channels = pruner.DG.get_out_channels(spec.module)
-    if channels is None or channels <= 0:
-        raise RuntimeError("Invalid output channels for L1 scoring.")
-    group = pruner.DG.get_pruning_group(spec.module, spec.pruning_fn, idxs=list(range(channels)))
-    scores = tp.importance.MagnitudeImportance(p=1, group_reduction="mean", normalizer="mean")(group)
-    if scores is None:
-        raise RuntimeError("L1 importance returned None.")
-    return scores.detach().float().to(spec.module.weight.device)
+def l1_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    """L1 magnitude importance: sum of absolute weight values per output channel."""
+    return conv.weight.detach().abs().flatten(1).sum(1)
 
 
 def collect_current_root_channel_map(model: nn.Module, args, device: torch.device) -> dict[str, int]:
@@ -460,7 +516,7 @@ def prune_one_round(
                     continue
 
                 try:
-                    scores = l1_scores_for_root(pruner, spec)
+                    scores = l1_scores_for_conv_out_channels(spec.module)
                 except Exception as exc:
                     log(f"Round {round_idx}: skip {spec.name} because {exc}")
                     failed_roots.add(spec.name)
@@ -583,33 +639,67 @@ def main() -> int:
     model, orig_ckpt = load_model(weights, device)
     validate_expected_architecture(model)
 
-    initial_shape = validate_forward(model, device, args.batch_size, args.imgsz)
+    initial_shape = validate_forward(model, device, args.batch_size, imgsz=args.imgsz)
     log(f"Initial forward output: {tuple(initial_shape)}")
 
-    seed_vis, seed_ir = create_example_inputs(args.batch_size, args.imgsz, device)
+    initial_flops, initial_params = 0.0, sum(p.numel() for p in model.parameters())
+    try:
+        initial_flops, initial_params = compute_model_stats(model, device, args.batch_size, args.imgsz)
+    except Exception as exc:
+        log(f"Failed to compute initial GFLOPs/Params: {exc}")
+    log(f"Before pruning: GFLOPs={initial_flops:.3f}, Params={initial_params:,}")
+
+    vis, ir = create_example_inputs(args.batch_size, args.imgsz, device)
     seed_wrapper = ModelWrapper(model)
     seed_pruner = None
     initial_channels_map: dict[str, int] = {}
     try:
-        seed_pruner = build_meta_pruner(seed_wrapper, tp, args, seed_vis, seed_ir)
+        ignored = find_ignored_layers(model)
+        log(f"Ignored layers: {len(ignored)} modules")
+
+        importance = tp.importance.MagnitudeImportance(p=1, group_reduction="mean", normalizer="mean")
+        seed_pruner = tp.pruner.MetaPruner(
+            seed_wrapper,
+            example_inputs=(vis, ir),
+            importance=importance,
+            pruning_ratio=args.prune_ratio,
+            iterative_steps=args.iterations,
+            ignored_layers=ignored,
+            root_module_types=[nn.Conv2d],
+            round_to=args.round_to,
+        )
+
         for spec in collect_root_specs(model, seed_pruner, args.layer_end, args.include_neck):
-            ch = seed_pruner.DG.get_out_channels(spec.module)
-            if ch is not None:
-                initial_channels_map[spec.name] = int(ch)
+            channels = seed_pruner.DG.get_out_channels(spec.module)
+            if channels is not None:
+                initial_channels_map[spec.name] = int(channels)
     finally:
         seed_wrapper.restore()
         if seed_pruner is not None:
             del seed_pruner
+        gc.collect()
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
 
-    initial_candidate_channels = sum(initial_channels_map.values())
-    log(f"Initial candidate root channels: {initial_candidate_channels}")
+    if not initial_channels_map:
+        raise RuntimeError("No pruneable roots were found for the current model/config.")
+
+    log(f"Initial candidate root channels: {sum(initial_channels_map.values())}")
 
     schedule = build_cumulative_schedule(args.prune_ratio, args.iterations)
     for round_idx, target_ratio in enumerate(schedule, start=1):
         log(f"Start round {round_idx}/{args.iterations}, cumulative target={target_ratio:.4f}")
-        roots, channels = prune_one_round(model, args, device, round_idx, target_ratio, initial_channels_map)
+        roots_pruned, channels_pruned = prune_one_round(
+            model,
+            args,
+            device,
+            round_idx,
+            target_ratio,
+            initial_channels_map,
+        )
         shape = validate_forward(model, device, args.batch_size, args.imgsz)
-        log(f"Finish round {round_idx}: roots={roots}, channels={channels}, output={tuple(shape)}")
+        step_params = sum(p.numel() for p in model.parameters())
+        log(f"Finish round {round_idx}: roots={roots_pruned}, channels={channels_pruned}, params={step_params:,}, output={tuple(shape)}")
 
     flops_g = 0.0
     params = sum(p.numel() for p in model.parameters())
@@ -624,12 +714,6 @@ def main() -> int:
     except Exception as exc:
         log(f"Failed to measure FPS: {exc}")
 
-    final_channels_map = collect_current_root_channel_map(model, args, device)
-    final_candidate_channels = sum(final_channels_map.get(name, 0) for name in initial_channels_map)
-    achieved_channel_ratio = 0.0
-    if initial_candidate_channels > 0:
-        achieved_channel_ratio = max(initial_candidate_channels - final_candidate_channels, 0) / initial_candidate_channels
-
     save_pruned_checkpoint(model, orig_ckpt, output_path)
     log(f"Saved pruned model to: {output_path}")
 
@@ -642,13 +726,13 @@ def main() -> int:
     except Exception as exc:
         log(f"Reload check failed: {exc}")
 
+    param_reduction = 1.0 - params / max(initial_params, 1)
     print("\n=== L1-Norm pruning summary ===")
-    print(f"GFLOPs : {flops_g:.3f}")
-    print(f"Params : {params:,}")
+    print(f"GFLOPs : {initial_flops:.3f} -> {flops_g:.3f}")
+    print(f"Params : {initial_params:,} -> {params:,} ({param_reduction:.1%} reduction)")
     print(f"FPS    : {fps:.2f}")
-    print(f"RootCh : {initial_candidate_channels} -> {final_candidate_channels} ({achieved_channel_ratio:.2%})")
     print(f"Output : {output_path}")
-    print("Note   : this script uses DepGraph + L1 magnitude importance only, without extra FLOPs-biased ranking.")
+    print("Note   : this script uses DepGraph + L1 magnitude importance with cumulative root pruning.")
     print("Resume command:")
     print_resume_command(output_path, args)
     return 0

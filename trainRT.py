@@ -1,7 +1,7 @@
 import os
 import gc
 import warnings
-
+# batch  worker  8
 warnings.filterwarnings("ignore", message=".*deterministic.*")
 warnings.filterwarnings("ignore", message=".*does not have a deterministic implementation.*")
 
@@ -19,18 +19,22 @@ def main():
     from ultralytics import RTDETRMM  
     #
 
-    model_name1 = "A-DWConv-C3Ghost"
-    model_name2 = "A-GSConv"
-
-    batch1 = 4
-    batch2 = 4
-    workers = 8
+    model_name1 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CMXFusion"
+    model_name2 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CMXFusion"
+    model_dir1 = "r50"
+    model_dir2 = "r34"
+    run_name1 = f"{model_dir1}-{model_name1}"
+    run_name2 = f"{model_dir2}-{model_name2}"
+   # 4 4 8
+    batch1 = 1
+    batch2 = 1
+    workers = 4
     amp1 = True
     amp2 = True  # reduce late-stage NaN collapse risk on AddFusion-like variants
 
-    print(f"[train] start model1={model_name1}, batch={batch1}", flush=True)
+    print(f"[train] start model1={run_name1}, batch={batch1}", flush=True)
 
-    model = RTDETRMM(f"ultralytics/cfg/models/rtmm/r18/{model_name1}.yaml")
+    model = RTDETRMM(f"ultralytics/cfg/models/rtmm/{model_dir1}/{model_name1}.yaml")
     model.train(
         data=r"D:\BaiduNetdiskDownload\m4FD\M3FD_split\data.yaml",
         epochs=150,
@@ -40,7 +44,7 @@ def main():
         amp=amp1,
         deterministic=False,
         project="D:/JiQI/MM-experiment/ResTest",
-        name=model_name1,
+        name=run_name1,
         resume=False,
         workers=workers,
     )
@@ -56,9 +60,9 @@ def main():
             except Exception:
                 pass
 
-    print(f"[train] start model2={model_name2}, batch={batch2}", flush=True)
-    model = RTDETRMM(f"ultralytics/cfg/models/rtmm/r18/{model_name2}.yaml")
-    """ model.train(
+    print(f"[train] start model2={run_name2}, batch={batch2}", flush=True)
+    model = RTDETRMM(f"ultralytics/cfg/models/rtmm/{model_dir2}/{model_name2}.yaml")
+    model.train(
         data=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml",
         epochs=150,
         device=0,
@@ -67,10 +71,10 @@ def main():
         amp=amp2,
         deterministic=False,
         project="D:/JiQI/MM-experiment/ResTest",
-        name=model_name2,
+        name=run_name2,
         resume=False,
         workers=workers,
-    ) """
+    )
 
 if __name__ == "__main__":
      main()

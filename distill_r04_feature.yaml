@@ -1,0 +1,12 @@
+version: 1
+
+teachers:
+  - name: teacher_dual
+    role: dual
+    weights: D:/JiQI/MM-experiment/ResTest/aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CMXFusion2/weights/best.pt
+
+mappings:
+  feature:
+    - teacher: teacher_dual
+      teacher_layer: [13, 14, 15]
+      student_layer: [13, 14, 15]

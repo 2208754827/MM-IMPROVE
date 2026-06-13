@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Structured iterative pruning for RT-DETR-r18 RGB/IR fusion models.
+"""LAMP-TaylorLike structured iterative pruning for RTDETRMM RGB/IR fusion models.
 
-This script currently supports the two RTDETRMM families used in this project:
+This script supports the two RTDETRMM families used in this project:
 - PIAFusionBlock-based mid-fusion models
 - CMXFusion-based RTMM variants such as A-DWConv-C3k2_PConv
 
 Key design points:
-- Uses torch-pruning with Taylor importance under MetaPruner/DepGraph.
-- Wraps the original model as forward(vis, ir) while internally feeding 6-channel input.
+- Reuses the active Taylor pruning pipeline structure for a fair comparison experiment.
+- Uses torch-pruning MetaPruner/DepGraph with LAMP importance for root pruning.
 - Preserves fusion branch alignment by skipping the fusion input roots and pruning structurally safe
-  backbone outputs, including Conv/DWConv layers and CSP/C3k2-style block output convolutions.
+  backbone/neck outputs, including Conv/DWConv layers and CSP/C3k2-style block output convolutions.
 - Ignores RTDETRDecoder and all DAttention-related modules during tracing/pruning.
-- Prunes backbone-oriented root modules iteratively and recalculates gradients every round.
+- Keeps FLOPs bias and slimming interfaces available, but defaults them to neutral/off for fairness.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def log(msg: str) -> None:
 def parse_args() -> argparse.Namespace:
     pia_default = Path("ReTest") / "A-DWConv-C3k2_PConv" / "weights" / "best.pt"
     default_weights = pia_default if pia_default.exists() else Path("MODEL") / "pruned_finetune_best.pt"
-    parser = argparse.ArgumentParser(description="Iterative pruning for RTDETRMM VIF models")
+    parser = argparse.ArgumentParser(description="LAMP-TaylorLike iterative pruning for RTDETRMM VIF models")
     parser.add_argument("--weights", type=str, default=str(default_weights), help="Input .pt checkpoint")
     parser.add_argument("--output", type=str, default="prune_outputs", help="Output .pt path or directory")
     parser.add_argument("--data", type=str, default=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml", help="Dataset yaml for the printed resume command")
@@ -69,8 +69,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--flops-bias",
         type=float,
-        default=1.25,
-        help="Bias pruning selection toward channels that save more FLOPs. Larger values prefer high-resolution layers.",
+        default=0.0,
+        help="Bias pruning selection toward channels that save more FLOPs. Default 0.0 keeps the fair baseline score-only.",
     )
     parser.add_argument(
         "--layer-end",
@@ -95,7 +95,7 @@ def parse_args() -> argparse.Namespace:
         "--decoder-keep-ratio",
         type=float,
         default=1.0,
-        help="Keep ratio for RTDETRDecoder hidden width. <1 enables aggressive Taylor slimming.",
+        help="Keep ratio for RTDETRDecoder hidden width. Default 1.0 keeps decoder width unchanged for fairness.",
     )
     return parser.parse_args()
 
@@ -143,7 +143,7 @@ def make_output_path(output_arg: str, ratio: float) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     ratio_str = f"{ratio:.2f}".rstrip("0").rstrip(".")
     timestamp = datetime.now().strftime("%m%d_%H%M")
-    return out / f"pruned_r{ratio_str}_{timestamp}.pt"
+    return out / f"pruned_lamp_taylorlike_r{ratio_str}_{timestamp}.pt"
 
 
 def remove_args_recursive(obj: object) -> None:
@@ -173,6 +173,7 @@ def sanitize_checkpoint_for_save(orig_ckpt: dict | None, model: nn.Module) -> di
     ckpt["model"] = save_model
     ckpt["pruned"] = True
     ckpt["date"] = datetime.now().isoformat()
+    ckpt["prune_method"] = "lamp_taylorlike"
     return ckpt
 
 
@@ -310,7 +311,7 @@ def get_candidate_root_names_for_layer(idx: int, layer: nn.Module, include_neck:
 
 def build_meta_pruner(wrapper: ModelWrapper, tp, args, vis, ir):
     ignored_layers = find_ignored_layers(wrapper.model)
-    importance = tp.importance.TaylorImportance(group_reduction="mean", normalizer="mean")
+    importance = tp.importance.MagnitudeImportance(p=1, group_reduction="mean", normalizer="mean")
     pruner = tp.pruner.MetaPruner(
         wrapper,
         example_inputs=(vis, ir),
@@ -592,12 +593,16 @@ def taylor_scores_for_conv_in_channels(conv: nn.Conv2d) -> torch.Tensor:
     return (w * dw).abs().sum(1)
 
 
-def taylor_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
-    if conv.weight.grad is None:
-        raise RuntimeError("Conv output-channel Taylor scoring requires weight gradients.")
-    w = conv.weight.detach().flatten(1)
-    dw = conv.weight.grad.detach().flatten(1)
-    return (w * dw).abs().sum(1)
+def lamp_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    base = conv.weight.detach().flatten(1).pow(2).sum(1)
+    if base.numel() <= 1:
+        return base
+    sorted_vals, order = torch.sort(base, descending=True)
+    cumsum = torch.cumsum(sorted_vals, dim=0)
+    normalized = sorted_vals / torch.clamp(cumsum, min=1e-12)
+    scores = torch.empty_like(normalized)
+    scores[order] = normalized
+    return scores
 
 
 def conv_out_scores_or_magnitude(conv: nn.Conv2d) -> torch.Tensor:
@@ -676,13 +681,6 @@ def prune_one_round(
 ) -> tuple[int, int]:
     vis, ir = create_example_inputs(args.batch_size, args.imgsz, device)
 
-    def refresh_gradients() -> None:
-        grad_wrapper = ModelWrapper(model)
-        try:
-            collect_taylor_gradients(grad_wrapper, vis, ir, args.grad_samples)
-        finally:
-            grad_wrapper.restore()
-
     root_pruned = 0
     channel_pruned = 0
     chunk_size = max(1, int(args.round_to))
@@ -690,7 +688,6 @@ def prune_one_round(
     failed_roots: set[str] = set()
 
     while True:
-        refresh_gradients()
         step_wrapper = ModelWrapper(model)
         pruner = None
         try:
@@ -727,7 +724,7 @@ def prune_one_round(
                     continue
 
                 try:
-                    scores = taylor_scores_for_conv_out_channels(spec.module)
+                    scores = lamp_scores_for_conv_out_channels(spec.module)
                 except Exception as exc:
                     log(f"第 {round_idx} 轮跳过 {spec.name}: {exc}")
                     failed_roots.add(spec.name)

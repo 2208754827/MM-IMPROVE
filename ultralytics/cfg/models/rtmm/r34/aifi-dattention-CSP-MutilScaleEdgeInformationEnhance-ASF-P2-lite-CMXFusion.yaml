@@ -1,0 +1,80 @@
+# RT-DETR-r34 MM mid + DAttention + CSP_MutilScaleEdgeInformationEnhance + ASF-P2-lite + CMXFusion
+# Design notes:
+# 1. Keep the ResNet-34 multimodal backbone pattern.
+# 2. Refine P3/P4/P5 with CSP_MutilScaleEdgeInformationEnhance.
+# 3. Replace mid-level Concat+Conv fusion with CMXFusion at P3.
+# 4. Add ASF-P2-lite style P2 branch before RTDETRDecoder.
+
+nc: 80
+scales:
+  l: [1.00, 1.00, 1024]
+
+backbone:
+  # RGB stem
+  - [-1, 1, ConvNormLayer, [32, 3, 2, None, False, 'relu'], 'RGB']   # 0-P1/2
+  - [-1, 1, ConvNormLayer, [32, 3, 1, None, False, 'relu']]           # 1
+  - [-1, 1, ConvNormLayer, [64, 3, 1, None, False, 'relu']]           # 2
+  - [-1, 1, nn.MaxPool2d, [3, 2, 1]]                                  # 3-P2/4
+
+  # X stem
+  - [-1, 1, ConvNormLayer, [32, 3, 2, None, False, 'relu'], 'X']     # 4-P1/2
+  - [-1, 1, ConvNormLayer, [32, 3, 1, None, False, 'relu']]           # 5
+  - [-1, 1, ConvNormLayer, [64, 3, 1, None, False, 'relu']]           # 6
+  - [-1, 1, nn.MaxPool2d, [3, 2, 1]]                                  # 7-P2/4
+
+  # RGB branch
+  - [3, 1, Blocks, [64, BasicBlock, 3, 2, 'relu']]                    # 8-RGB P2
+  - [-1, 1, Blocks, [128, BasicBlock, 4, 3, 'relu']]                  # 9-RGB P3
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [128]]              # 10-RGB P3 refine
+
+  # X branch
+  - [7, 1, Blocks, [64, BasicBlock, 3, 2, 'relu']]                    # 11-X P2
+  - [-1, 1, Blocks, [128, BasicBlock, 4, 3, 'relu']]                  # 12-X P3
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [128]]              # 13-X P3 refine
+
+  # Mid-level fusion at P3
+  - [[10, 13], 1, CMXFusion, []]                                      # 14 fused P3
+
+  # Continue fused trunk
+  - [-1, 1, Blocks, [256, BasicBlock, 6, 4, 'relu']]                  # 15-P4/16
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [256]]              # 16-P4 refine
+  - [-1, 1, Blocks, [512, BasicBlock, 3, 5, 'relu']]                  # 17-P5/32
+  - [-1, 1, CSP_MutilScaleEdgeInformationEnhance, [512]]              # 18-P5 refine
+
+head:
+  - [-1, 1, Conv, [256, 1, 1, None, 1, 1, False]]                     # 19 input_proj.2
+  - [-1, 1, TransformerEncoderLayer_DAttention, [1024]]               # 20
+  - [-1, 1, Conv, [256, 1, 1]]                                        # 21 Y5
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]                        # 22
+  - [14, 1, Conv, [256, 1, 1, None, 1, 1, False]]                    # 23 input_proj.1 (P3)
+  - [[-1, 16, -2], 1, Zoom_cat, []]                                   # 24
+  - [-1, 3, RepC3, [256, 0.5]]                                        # 25 Y4
+  - [-1, 1, Conv, [256, 1, 1]]                                        # 26
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]                        # 27
+  - [8, 1, Conv, [128, 1, 1, None, 1, 1, False]]                     # 28 input_proj.0-lite (P2)
+  - [[-1, 14, -2], 1, Zoom_cat, []]                                   # 29
+  - [-1, 3, RepC3, [256, 0.5]]                                        # 30 P3
+
+  - [-1, 1, Conv, [256, 3, 2]]                                        # 31
+  - [[-1, 26], 1, Concat, [1]]                                        # 32
+  - [-1, 3, RepC3, [256, 0.5]]                                        # 33 P4
+
+  - [-1, 1, Conv, [256, 3, 2]]                                        # 34
+  - [[-1, 21], 1, Concat, [1]]                                        # 35
+  - [-1, 3, RepC3, [256, 0.5]]                                        # 36 P5
+
+  - [[14, 16, 19], 1, ScalSeq, [256]]                                 # 37
+  - [[30, -1], 1, Add, []]                                            # 38
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]                        # 39
+  - [8, 1, Conv, [128, 1, 1, None, 1, 1, False]]                     # 40 P2-lite proj
+  - [[-1, -2], 1, Concat, [1]]                                        # 41
+  - [-1, 3, RepC3, [128, 0.5]]                                        # 42 P2-lite
+
+  - [[8, 38, 33], 1, ScalSeq, [128]]                                  # 43
+  - [[42, -1], 1, Add, []]                                            # 44
+  - [-1, 1, Conv, [256, 1, 1]]                                        # 45 restore decoder dim
+
+  - [[45, 38, 33, 36], 1, RTDETRDecoder, [nc, 256, 300, 4, 8, 4]]    # 46 Detect(P2, P3, P4, P5)
