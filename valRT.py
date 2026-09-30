@@ -7,11 +7,34 @@ import numpy as np
 from prettytable import PrettyTable
 from pathlib import Path
 from ultralytics import RTDETRMM
+from ultralytics.models.rtdetrmm.val import RTDETRMMValidator
 from ultralytics.utils.torch_utils import model_info
 
-MODEL_PATH = r"D:\BaiduNetdiskDownload\MutilModel_3398475911\runs_finetune\M3F-0.4-dep+obc-150-wu\weights\best.pt"
-DATA_PATH = r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml"
+BASE_MODEL_PATH = Path(r"D:\JiQI\MM-experiment\ResTest\only-asf2\weights\best.pt")
+STAGE1_MODEL_PATH = Path(r"D:\JiQI\MM-experiment\ResTest\FLIR-bicycle-oversample-x2\weights\best.pt")
+STAGE2_MODEL_PATH = Path(r"D:\JiQI\MM-experiment\ResTest\FLIR-bicycle-x3-640-stage2\weights\best.pt")
+# 验证 only-backbone 模型
+DEFAULT_MODEL_PATH = BASE_MODEL_PATH
+# 也可通过 RTDETRMM_MODEL_PATH 指定任意 checkpoint。
+MODEL_PATH = os.environ.get("RTDETRMM_MODEL_PATH", str(DEFAULT_MODEL_PATH))
+# 默认按训练分辨率 640 验证；可用 RTDETRMM_IMGSZ=800 显式覆盖。
+DEFAULT_IMGSZ = 640
+VAL_IMGSZ = int(os.environ.get("RTDETRMM_IMGSZ", DEFAULT_IMGSZ))
+DATA_PATH = r"D:\BaiduNetdiskDownload\M3FD_split\data.yaml"
 DEVICE = 0
+
+
+def load_mm_model(path):
+    """根据 checkpoint 内模型类自动选择加载器：RT-DETR 系用 RTDETRMM，YOLO 系用 YOLOMM。"""
+    import torch
+    from ultralytics import RTDETRMM, YOLOMM
+
+    ckpt = torch.load(str(path), map_location="cpu", weights_only=False)
+    cls_name = type(ckpt["model"]).__name__
+    print(f"[val] checkpoint model class: {cls_name}")
+    if "RTDETR" in cls_name:
+        return RTDETRMM(str(path))
+    return YOLOMM(str(path))
 
 
 def get_weight_size(path):
@@ -32,14 +55,24 @@ if __name__ == "__main__":
     if not model_path.exists():
         raise FileNotFoundError(f"MODEL_PATH does not exist: {model_path}")
 
+    # This checkpoint is an RT-DETR multimodal model. Do not infer the loader
+    # from the serialized Python class name, which may incorrectly select YOLOMM.
+    print("[val] force model loader: RTDETRMM")
     model = RTDETRMM(str(model_path))
 
     result = model.val(
+        validator=RTDETRMMValidator,
         data=DATA_PATH,
-        split="test",
+        split="val",
+        imgsz=VAL_IMGSZ,
+        batch=4,
         device=DEVICE,
+        conf=0.001,
+        rect=False,
+        plots=True,
         project="val",
         name="RTDETRval",
+        exist_ok=True,
         workers=4,
     )
 

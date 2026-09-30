@@ -787,9 +787,14 @@ def load_dataset_cache_file(path: Path) -> Dict:
     import gc
 
     gc.disable()  # reduce pickle load time https://github.com/ultralytics/ultralytics/pull/1585
-    cache = np.load(str(path), allow_pickle=True).item()  # load dict
-    gc.enable()
-    return cache
+    cache = np.load(str(path), allow_pickle=True)  # ndarray (npy) or NpzFile (legacy zip format)
+    try:
+        data = cache.item()  # dict
+    finally:
+        if isinstance(cache, np.lib.npyio.NpzFile):
+            cache.close()  # release handle, otherwise unlink() of the stale cache fails on Windows
+        gc.enable()
+    return data
 
 
 def save_dataset_cache_file(prefix: str, path: Path, x: Dict, version: str):

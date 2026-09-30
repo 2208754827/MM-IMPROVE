@@ -358,7 +358,7 @@ class Detect_MultiSEAM(Detect_SEAM):
     """YOLO Detect head with MultiSEAM blocks."""
 
     def __init__(self, nc: int = 80, ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.nc = nc
         self.nl = len(ch)
         self.reg_max = 16
@@ -384,7 +384,7 @@ class Segment_Efficient(Detect_Efficient):
     """Segmentation head based on Efficient detect head."""
 
     def __init__(self, nc=80, nm=32, npr=256, ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.nm = nm
         self.npr = npr
         self.proto = Proto(ch[0], self.npr, self.nm)
@@ -475,7 +475,7 @@ class Detect_LADH(nn.Module):
 
 class Segment_LADH(Detect_LADH):
     def __init__(self, nc=80, nm=32, npr=256, ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.nm = nm
         self.npr = npr
         self.proto = Proto(ch[0], self.npr, self.nm)
@@ -498,7 +498,7 @@ class Segment_LADH(Detect_LADH):
 
 class Pose_LADH(Detect_LADH):
     def __init__(self, nc=80, kpt_shape=(17, 3), ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.kpt_shape = kpt_shape
         self.nk = kpt_shape[0] * kpt_shape[1]
         self.detect = Detect_LADH.forward
@@ -535,7 +535,7 @@ class Pose_LADH(Detect_LADH):
 
 class OBB_LADH(Detect_LADH):
     def __init__(self, nc=80, ne=1, ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.ne = ne
         self.detect = Detect_LADH.forward
 
@@ -990,7 +990,7 @@ class LQE(nn.Module):
 
 class Detect_LQE(Detect):
     def __init__(self, nc=80, ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.lqe = nn.ModuleList(LQE(4, 64, 2, self.reg_max) for _ in ch)
         if self.end2end:
             self.one2one_lqe = copy.deepcopy(self.lqe)
@@ -1031,7 +1031,7 @@ class Detect_LQE(Detect):
 
 class Segment_LQE(Detect_LQE):
     def __init__(self, nc=80, nm=32, npr=256, ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.nm = nm
         self.npr = npr
         self.proto = Proto(ch[0], self.npr, self.nm)
@@ -1051,7 +1051,7 @@ class Segment_LQE(Detect_LQE):
 
 class OBB_LQE(Detect_LQE):
     def __init__(self, nc=80, ne=1, ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.ne = ne
         c4 = max(ch[0] // 4, self.ne)
         self.cv4 = nn.ModuleList(nn.Sequential(Conv(x, c4, 3), Conv(c4, c4, 3), nn.Conv2d(c4, self.ne, 1)) for x in ch)
@@ -1073,7 +1073,7 @@ class OBB_LQE(Detect_LQE):
 
 class Pose_LQE(Detect_LQE):
     def __init__(self, nc=80, kpt_shape=(17, 3), ch=()):
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.kpt_shape = kpt_shape
         self.nk = kpt_shape[0] * kpt_shape[1]
         c4 = max(ch[0] // 4, self.nk)

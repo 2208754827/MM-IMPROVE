@@ -61,6 +61,14 @@ class Converse2D_Up(nn.Module):
         Returns:
             上采样后的张量 (B, C, H*scale, W*scale)。
         """
+        # cuFFT in half precision only supports power-of-two sizes (and
+        # ComplexHalf is experimental), so run the whole deconvolution in
+        # float32 and cast the output back to the input dtype
+        in_dtype = x.dtype
+        x = x.float()
+        weight = self.weight.float()
+        bias = self.bias.float()
+
         if self.padding > 0:
             x = nn.functional.pad(
                 x,
@@ -69,13 +77,13 @@ class Converse2D_Up(nn.Module):
                 value=0,
             )
 
-        biaseps = torch.sigmoid(self.bias - 9.0) + self.eps
+        biaseps = torch.sigmoid(bias - 9.0) + self.eps
         _, _, h, w = x.shape
         STy = self._upsample(x, scale=self.scale)
         if self.scale != 1:
             x = nn.functional.interpolate(x, scale_factor=self.scale, mode="nearest")
 
-        FB = self._p2o(self.weight, (h * self.scale, w * self.scale))
+        FB = self._p2o(weight, (h * self.scale, w * self.scale))
         FBC = torch.conj(FB)
         F2B = torch.pow(torch.abs(FB), 2)
         FBFy = FBC * torch.fft.fftn(STy, dim=(-2, -1))
@@ -96,7 +104,7 @@ class Converse2D_Up(nn.Module):
                 self.padding * self.scale : -self.padding * self.scale,
             ]
 
-        return self.act(out)
+        return self.act(out.to(in_dtype))
 
     @staticmethod
     def _splits(a: torch.Tensor, scale: int) -> torch.Tensor:

@@ -4,9 +4,8 @@
 from ultralytics import YOLOMM
 
 if __name__ == '__main__':
-    model = YOLOMM('yolo11n-mm-mid.yaml')
-    # model = YOLOMM('yolo11n-mm-mid3.yaml')
-    model.train(data='/home/zhizi/work/multimodel/ultralyticmm/data.yaml',
+    model = YOLOMM(r'D:\BaiduNetdiskDownload\MutilModel_3398475911\ultralytics\cfg\models\rtmm\r18\baseline_plus_csp.yaml')
+    model.train(data=r'D:\BaiduNetdiskDownload\M3FD_split\data.yaml',
                 epochs=100,batch=8,
                 # modality='X', 模态消融参数 非必要不得开启
                 # cache=True,

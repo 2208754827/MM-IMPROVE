@@ -75,18 +75,20 @@ class Detect(nn.Module):
     legacy = False  # backward compatibility for v3/v5/v8/v9 models
     xyxy = False  # xyxy or xywh output
 
-    def __init__(self, nc: int = 80, ch: Tuple = ()):
+    def __init__(self, nc: int = 80, reg_max: int = 16, end2end: bool = False, ch: Tuple = ()):
         """
         Initialize the YOLO detection layer with specified number of classes and channels.
 
         Args:
             nc (int): Number of classes.
+            reg_max (int): DFL channels (YOLO26 uses reg_max=1 for simplified DFL).
+            end2end (bool): Whether to use end-to-end NMS-free detection (one2many + one2one).
             ch (tuple): Tuple of channel sizes from backbone feature maps.
         """
         super().__init__()
         self.nc = nc  # number of classes
         self.nl = len(ch)  # number of detection layers
-        self.reg_max = 16  # DFL channels (ch[0] // 16 to scale 4/8/12/16/20 for n/s/m/l/x)
+        self.reg_max = reg_max  # DFL channels
         self.no = nc + self.reg_max * 4  # number of outputs per anchor
         self.stride = torch.zeros(self.nl)  # strides computed during build
         c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))  # channels
@@ -107,7 +109,11 @@ class Detect(nn.Module):
         )
         self.dfl = DFL(self.reg_max) if self.reg_max > 1 else nn.Identity()
 
-        if self.end2end:
+        # 解析端到端开关：显式传入的 end2end 与子类类属性（如 v10Detect.end2end=True）取或，
+        # 实例属性覆盖类属性，保证 forward 走 forward_end2end 路径。
+        end2end = end2end or getattr(self, "end2end", False)
+        self.end2end = end2end
+        if end2end:
             self.one2one_cv2 = copy.deepcopy(self.cv2)
             self.one2one_cv3 = copy.deepcopy(self.cv3)
 
@@ -279,7 +285,7 @@ class Segment(Detect):
             npr (int): Number of protos.
             ch (tuple): Tuple of channel sizes from backbone feature maps.
         """
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.nm = nm  # number of masks
         self.npr = npr  # number of protos
         self.proto = Proto(ch[0], self.npr, self.nm)  # protos
@@ -330,7 +336,7 @@ class OBB(Detect):
             ne (int): Number of extra parameters.
             ch (tuple): Tuple of channel sizes from backbone feature maps.
         """
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.ne = ne  # number of extra parameters
 
         c4 = max(ch[0] // 4, self.ne)
@@ -386,7 +392,7 @@ class Pose(Detect):
             kpt_shape (tuple): Number of keypoints, number of dims (2 for x,y or 3 for x,y,visible).
             ch (tuple): Tuple of channel sizes from backbone feature maps.
         """
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         self.kpt_shape = kpt_shape  # number of keypoints, number of dims (2 for x,y or 3 for x,y,visible)
         self.nk = kpt_shape[0] * kpt_shape[1]  # number of keypoints total
 
@@ -521,7 +527,7 @@ class WorldDetect(Detect):
             with_bn (bool): Whether to use batch normalization in contrastive head.
             ch (tuple): Tuple of channel sizes from backbone feature maps.
         """
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         c3 = max(ch[0], min(self.nc, 100))
         self.cv3 = nn.ModuleList(nn.Sequential(Conv(x, c3, 3), Conv(c3, c3, 3), nn.Conv2d(c3, embed, 1)) for x in ch)
         self.cv4 = nn.ModuleList(BNContrastiveHead(embed) if with_bn else ContrastiveHead() for _ in ch)
@@ -654,7 +660,7 @@ class YOLOEDetect(Detect):
             with_bn (bool): Whether to use batch normalization in contrastive head.
             ch (tuple): Tuple of channel sizes from backbone feature maps.
         """
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)
         c3 = max(ch[0], min(self.nc, 100))
         assert c3 <= embed
         assert with_bn is True
@@ -1227,7 +1233,7 @@ class v10Detect(Detect):
             nc (int): Number of classes.
             ch (tuple): Tuple of channel sizes from backbone feature maps.
         """
-        super().__init__(nc, ch)
+        super().__init__(nc, ch=ch)  # end2end 由父类通过类属性 end2end=True 自动启用
         c3 = max(ch[0], min(self.nc, 100))  # channels
         # Light cls head
         self.cv3 = nn.ModuleList(

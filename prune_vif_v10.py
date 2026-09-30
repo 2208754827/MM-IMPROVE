@@ -600,6 +600,117 @@ def taylor_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
     return (w * dw).abs().sum(1)
 
 
+def bn_scale_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    """BN gamma magnitude as channel importance (BN-Slimming scoring).
+
+    For Conv modules wrapped in a Conv/BN block (the common case in this
+    codebase), the BN sibling is ``conv_parent.bn``.  We walk the model
+    to find it; if no BN is found we fall back to L1 magnitude.
+    """
+    # Fast path: check if this conv is a known Conv-block's .conv attribute.
+    # The model stores named_modules; we search for a parent whose .conv is
+    # exactly this module and whose .bn exists.
+    try:
+        # Access the global model via the conv's module graph.
+        # We rely on the fact that root convolutions selected by
+        # collect_root_specs always live inside a Conv/DWConv wrapper
+        # that has a .bn attribute.
+        # Since we cannot easily walk upward from the conv alone,
+        # we use a simpler heuristic: scan model.modules() for a wrapper
+        # whose .conv is this module.
+        # This is only called once per candidate per round, so the cost
+        # is acceptable.
+        import ultralytics.nn.modules as M
+        for parent in _model_ref.modules():
+            if hasattr(parent, "conv") and parent.conv is conv and hasattr(parent, "bn"):
+                bn = parent.bn
+                if isinstance(bn, nn.modules.batchnorm._BatchNorm) and bn.affine:
+                    return bn.weight.detach().abs().to(conv.weight.device)
+    except Exception:
+        pass
+    # Fallback: L1 magnitude when no BN found
+    return conv.weight.detach().abs().sum(1)
+
+
+def l1_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    """L1 magnitude as channel importance."""
+    w = conv.weight.detach().flatten(1)
+    return w.abs().sum(1)
+
+
+def fpgm_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    """FPGM (Filter Pruning via Geometric Median) distance as channel importance.
+
+    Filters closest to the geometric center (lowest total pairwise distance)
+    are least distinctive and should be pruned first.
+    """
+    w = conv.weight.detach().flatten(1)
+    if w.shape[0] <= 1:
+        return torch.zeros(w.shape[0], device=w.device, dtype=w.dtype)
+    distances = torch.cdist(w, w, p=2)
+    return distances.sum(dim=1)
+
+
+def lamp_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    """LAMP (Layer-Adaptive Magnitude-based Pruning) as channel importance.
+
+    Sorts weight squared magnitudes descending, normalizes each by the
+    cumulative sum, and maps back to original channel order.  This adaptive
+    normalization ensures layers with different magnitude scales are compared
+    fairly.
+    """
+    base = conv.weight.detach().flatten(1).pow(2).sum(1)
+    if base.numel() <= 1:
+        return base
+    sorted_vals, order = torch.sort(base, descending=True)
+    cumsum = torch.cumsum(sorted_vals, dim=0)
+    normalized = sorted_vals / torch.clamp(cumsum, min=1e-12)
+    scores = torch.empty_like(normalized)
+    scores[order] = normalized
+    return scores
+
+
+def obc_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    """OBC-style importance: weight² × Fisher diagonal (gradient²).
+
+    Approximates the expected loss increase from removing a filter by
+    combining weight scale and gradient sensitivity.
+    """
+    w = conv.weight.detach().flatten(1)
+    if conv.weight.grad is None:
+        return w.pow(2).sum(1)
+    g = conv.weight.grad.detach().flatten(1)
+    fisher_diag = g.pow(2).sum(1)
+    return (w.pow(2).sum(1) * fisher_diag).abs()
+
+
+def random_scores_for_conv_out_channels(conv: nn.Conv2d) -> torch.Tensor:
+    """Random channel importance (baseline scoring)."""
+    return torch.rand(conv.out_channels, device=conv.weight.device)
+
+
+def _get_root_scoring_fn():
+    """Return the root scoring function based on PRUNE_SCORING env var."""
+    scoring = os.environ.get("PRUNE_SCORING", "taylor").strip().lower()
+    _SCORING_MAP = {
+        "taylor": (taylor_scores_for_conv_out_channels, "taylor"),
+        "bn_slimming": (bn_scale_scores_for_conv_out_channels, "bn_slimming"),
+        "bnslim": (bn_scale_scores_for_conv_out_channels, "bn_slimming"),
+        "l1": (l1_scores_for_conv_out_channels, "l1"),
+        "fpgm": (fpgm_scores_for_conv_out_channels, "fpgm"),
+        "lamp": (lamp_scores_for_conv_out_channels, "lamp"),
+        "obc": (obc_scores_for_conv_out_channels, "obc"),
+        "random": (random_scores_for_conv_out_channels, "random"),
+    }
+    if scoring in _SCORING_MAP:
+        return _SCORING_MAP[scoring]
+    return taylor_scores_for_conv_out_channels, "taylor"
+
+
+# Module-level reference so BN-slimming scoring can walk the model to find BN layers.
+_model_ref: nn.Module | None = None
+
+
 def conv_out_scores_or_magnitude(conv: nn.Conv2d) -> torch.Tensor:
     w = conv.weight.detach().flatten(1)
     if conv.weight.grad is None:
@@ -674,6 +785,9 @@ def prune_one_round(
     target_ratio: float,
     initial_channels_map: dict[str, int],
 ) -> tuple[int, int]:
+    global _model_ref
+    _model_ref = model
+
     vis, ir = create_example_inputs(args.batch_size, args.imgsz, device)
 
     def refresh_gradients() -> None:
@@ -686,8 +800,10 @@ def prune_one_round(
     root_pruned = 0
     channel_pruned = 0
     chunk_size = max(1, int(args.round_to))
+    scoring_fn, scoring_name = _get_root_scoring_fn()
     target_total_pruned = ceil_round_prune_count(sum(initial_channels_map.values()), target_ratio, chunk_size)
     failed_roots: set[str] = set()
+    log(f"第 {round_idx} 轮使用评分策略: {scoring_name}")
 
     while True:
         refresh_gradients()
@@ -727,7 +843,7 @@ def prune_one_round(
                     continue
 
                 try:
-                    scores = taylor_scores_for_conv_out_channels(spec.module)
+                    scores = scoring_fn(spec.module)
                 except Exception as exc:
                     log(f"第 {round_idx} 轮跳过 {spec.name}: {exc}")
                     failed_roots.add(spec.name)

@@ -41,9 +41,24 @@ Example:
 
 from .exceptions import EmptyLayersError, InvalidLayerIndexError, LayerNotSpecifiedError
 from .feature import FeatureMapVisualizer
-from .heatmap import HeatmapVisualizer
-from .manager import FeatureMapResult, HeatmapResult, VisualizationManager
-from .pipeline import VisualizationPipeline
+
+# NOTE:
+# The multimodal visualization package is imported indirectly during normal model loading
+# (for example via `from ...visualize.utils import load_image`). Heatmap-related utilities
+# depend on optional third-party packages such as matplotlib / pytorch-grad-cam. Those
+# packages are not required for training, validation or pruning, so we avoid hard-importing
+# them here. This keeps core RTDETRMM workflows usable even when visualization extras are
+# unavailable in the current environment.
+try:  # optional visualization extras
+    from .heatmap import HeatmapVisualizer
+    from .manager import FeatureMapResult, HeatmapResult, VisualizationManager
+    from .pipeline import VisualizationPipeline
+except Exception:  # pragma: no cover - optional dependency guard
+    HeatmapVisualizer = None
+    FeatureMapResult = None
+    HeatmapResult = None
+    VisualizationManager = None
+    VisualizationPipeline = None
 
 __all__ = (
     "VisualizationManager",

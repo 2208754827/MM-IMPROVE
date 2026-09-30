@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+﻿# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import json
 import math
@@ -1532,3 +1532,5 @@ class ClassificationDataset:
             x["msgs"] = msgs  # warnings
             save_dataset_cache_file(self.prefix, path, x, DATASET_CACHE_VERSION)
             return samples
+
+

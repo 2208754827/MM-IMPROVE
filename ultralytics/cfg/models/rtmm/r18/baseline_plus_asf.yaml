@@ -1,0 +1,124 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Baseline + ASF-P2-lite-ScalSeq
+# Add Zoom_cat(ASF) + ScalSeq(SSF) + P2-lite to the baseline head
+# AIFI kept unchanged, decoder uses P2/P3/P4/P5
+
+# Parameters
+nc: 80  # number of classes
+scales: # model compound scaling constants
+  l: [1.00, 1.00, 1024]
+
+# Model architecture
+backbone:
+  # RGB Branch - Process RGB modality
+  - [-1, 1, ConvNormLayer, [32, 3, 2, None, False, 'relu'], 'RGB'] # 0-P1/2 RGB input
+  - [-1, 1, ConvNormLayer, [32, 3, 1, None, False, 'relu']] # 1
+  - [-1, 1, ConvNormLayer, [64, 3, 1, None, False, 'relu']] # 2
+  - [-1, 1, nn.MaxPool2d, [3, 2, 1]] # 3-P2/4
+
+  # X Branch - Process X modality (new input start)
+  - [-1, 1, ConvNormLayer, [32, 3, 2, None, False, 'relu'], 'X'] # 4-P1/2 X input
+  - [-1, 1, ConvNormLayer, [32, 3, 1, None, False, 'relu']] # 5
+  - [-1, 1, ConvNormLayer, [64, 3, 1, None, False, 'relu']] # 6
+  - [-1, 1, nn.MaxPool2d, [3, 2, 1]] # 7-P2/4
+
+  # RGB ResNet18 stages
+  - [3, 1, Blocks, [64, BasicBlock, 2, 2, 'relu']] # 8-RGB Stage2
+  - [-1, 1, Blocks, [128, BasicBlock, 2, 3, 'relu']] # 9-RGB Stage3 P3/8
+
+  # X ResNet18 stages
+  - [7, 1, Blocks, [64, BasicBlock, 2, 2, 'relu']] # 10-X Stage2
+  - [-1, 1, Blocks, [128, BasicBlock, 2, 3, 'relu']] # 11-X Stage3 P3/8
+
+  # Mid-level Fusion at P3
+  - [[9, 11], 1, Concat, [1]] # 12 - Concat RGB and X features at P3
+  - [-1, 1, Conv, [256, 1, 1]] # 13 - Fusion conv to reduce channels
+
+  # Continue processing fused features
+  - [-1, 1, Blocks, [256, BasicBlock, 2, 4, 'relu']] # 14-P4/16
+  - [-1, 1, Blocks, [512, BasicBlock, 2, 5, 'relu']] # 15-P5/32
+
+  # P2 simple fusion (for P2-lite detection head)
+  - [[3, 7], 1, Concat, [1]] # 16 - Concat RGB and X P2 (128ch)
+  - [-1, 1, Conv, [128, 1, 1]] # 17 - Fused P2 (128ch)
+
+head:
+  # ----------------------------------------------------------
+  # P5 semantic enhancement (AIFI kept)
+  # ----------------------------------------------------------
+  - [-1, 1, Conv, [256, 1, 1, None, 1, 1, False]]  # 18 input_proj.2 (P5 512->256)
+  - [-1, 1, AIFI, [1024, 8]] # 19 - AIFI unchanged
+  - [-1, 1, Conv, [256, 1, 1]]  # 20 Y5
+
+  # ----------------------------------------------------------
+  # P5 -> P4 top-down
+  # ----------------------------------------------------------
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']] # 21 P5 -> P4
+
+  # ----------------------------------------------------------
+  # P4 ASF fusion (Zoom_cat)
+  # ----------------------------------------------------------
+  - [13, 1, Conv, [256, 1, 1, None, 1, 1, False]]  # 22 input_proj.1 (Fused P3)
+  - [[-1, 14, -2], 1, Zoom_cat, []]  # 23 ASF: P3_proj + P4 + TD-P5
+  - [-1, 3, RepC3, [256, 0.5]]  # 24 Y4
+  - [-1, 1, Conv, [256, 1, 1]]   # 25
+
+  # ----------------------------------------------------------
+  # P4 -> P3 top-down
+  # ----------------------------------------------------------
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']] # 26 P4 -> P3
+
+  # ----------------------------------------------------------
+  # P3 ASF fusion (Zoom_cat)
+  # ----------------------------------------------------------
+  - [17, 1, Conv, [128, 1, 1, None, 1, 1, False]]  # 27 input_proj.0-lite (Fused P2 128)
+  - [[-1, 13, -2], 1, Zoom_cat, []]  # 28 ASF: P2_proj + Fused P3 + TD-P4
+  - [-1, 3, RepC3, [256, 0.5]]  # 29 P3
+
+  # ----------------------------------------------------------
+  # P3 -> P4 bottom-up
+  # ----------------------------------------------------------
+  - [-1, 1, Conv, [256, 3, 2]]   # 30 P3 -> P4
+  - [[-1, 25], 1, Concat, [1]]  # 31 cat Y4
+  - [-1, 3, RepC3, [256, 0.5]]    # 32 P4
+
+  # ----------------------------------------------------------
+  # P4 -> P5 bottom-up
+  # ----------------------------------------------------------
+  - [-1, 1, Conv, [256, 3, 2]]   # 33 P4 -> P5
+  - [[-1, 20], 1, Concat, [1]]  # 34 cat Y5
+  - [-1, 3, RepC3, [256, 0.5]]    # 35 P5
+
+  # ----------------------------------------------------------
+  # ScalSeq / SSF for P3
+  # ----------------------------------------------------------
+  - [[13, 14, 18], 1, ScalSeq, [256]]  # 36 Fused P3 + P4 + P5_proj
+  - [[29, -1], 1, Add, []]  # 37 P3 enhanced
+
+  # ----------------------------------------------------------
+  # P3 -> P2
+  # ----------------------------------------------------------
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']] # 38 P3 -> P2
+
+  # ----------------------------------------------------------
+  # P2-lite
+  # ----------------------------------------------------------
+  - [17, 1, Conv, [128, 1, 1, None, 1, 1, False]]  # 39 P2 projection
+  - [[-1, -2], 1, Concat, [1]]  # 40
+  - [-1, 3, RepC3, [128, 0.5]]  # 41 P2-lite
+
+  # ----------------------------------------------------------
+  # ScalSeq / SSF for P2
+  # ----------------------------------------------------------
+  - [[17, 37, 32], 1, ScalSeq, [128]]  # 42 Fused P2 + P3_enhanced + P4
+  - [[41, -1], 1, Add, []]  # 43 P2-lite enhanced
+
+  # ----------------------------------------------------------
+  # Restore decoder dimension
+  # ----------------------------------------------------------
+  - [-1, 1, Conv, [256, 1, 1]]  # 44 128 -> 256
+
+  # ----------------------------------------------------------
+  # RT-DETR Decoder (P2, P3, P4, P5)
+  # ----------------------------------------------------------
+  - [[44, 37, 32, 35], 1, RTDETRDecoder, [nc, 256, 300, 4, 8, 3]]  # 45 Detect

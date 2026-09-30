@@ -8,6 +8,8 @@ C2f Extraction - Variant Exports
 
 from __future__ import annotations
 
+import torch.nn as nn
+
 from ultralytics.nn.public import (
     CAMixer,
     HeatBlock,
@@ -124,6 +126,11 @@ __all__ = [
     "CSP_MutilScaleEdgeInformationEnhance",
     "CSP_MutilScaleEdgeInformationSelect",
     "CSP_FreqSpatial",
+    # RT2026 batch 02
+    "C2f_MAC",
+    "C2f_EVA",
+    "C2f_RMBC",
+    "C2f_FMA",
 ]
 
 
@@ -463,3 +470,121 @@ class CSP_FreqSpatial(C2fVariantBase):
     def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
         super().__init__(c1, c2, n, shortcut, g, e)
         self._build_blocks(n, lambda: FreqSpatial(self.c))
+
+
+# ===== RT2026 骨干对比实验变体（迁移自 RT-20260901/RTDETR-main） =====
+class C2f_GCConv(C2fVariantBase):
+    """CVPR2025 GCConv: 多分支门控卷积（训练多分支、推理重参数化）。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.gcconv import Bottleneck_GCConv
+        self.m = nn.ModuleList(Bottleneck_GCConv(self.c, self.c, shortcut, g=g, e=e) for _ in range(n))
+
+
+class C2f_ConverseB(C2fVariantBase):
+    """ICCV2025 ConverseNet: Converse2D 反向卷积 + MLP 双残差块。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.conversenet import ConverseBlock
+        self.m = nn.ModuleList(ConverseBlock(self.c, self.c) for _ in range(n))
+
+
+class C2f_PFG(C2fVariantBase):
+    """CVPR2026 PFGNet: PFGA 多尺度大核 token mixing + GLU 通道混合。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.pfg import PFG
+        self.m = nn.ModuleList(PFG(self.c, self.c) for _ in range(n))
+
+
+class C2f_SPJFB(C2fVariantBase):
+    """AAAI2026 SPJFB: 空间-频率联合特征块。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.spjfb import SPJFrequencyBlock
+        self.m = nn.ModuleList(SPJFrequencyBlock(self.c, self.c) for _ in range(n))
+
+
+class C2f_DEGConv(C2fVariantBase):
+    """CVPR2026 MixerCSeg: DEGConv 方向/边缘引导门控卷积（HOG 引导）。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.degconv import DEGConv
+        self.m = nn.ModuleList(DEGConv(self.c, self.c) for _ in range(n))
+
+
+class C2f_EfficientVIM(C2fVariantBase):
+    """CVPR2025 EfficientViM: HSMSSD 分层扫描混合器 + LayerScale 残差。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.efficientvim import EfficientViMBlock
+        self.m = nn.ModuleList(EfficientViMBlock(self.c) for _ in range(n))
+
+
+class C2f_MambaOut(C2fVariantBase):
+    """CVPR2025 MambaOut: GatedCNNBlock 门控纯卷积块（"不需要 Mamba"主张）。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.mambaout import GatedCNNBlock_BCHW
+        self.m = nn.ModuleList(GatedCNNBlock_BCHW(self.c) for _ in range(n))
+
+
+class C2f_Converse2D(C2fVariantBase):
+    """ICCV2025 ConverseNet: 双 Converse2D 反向卷积 Bottleneck 形态。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.conversenet import Converse2D
+        from ultralytics.nn.modules.block import Bottleneck
+
+        class Bottleneck_Converse(Bottleneck):
+            def __init__(self, c1_, c2_, shortcut_=True, g_=1, k=(3, 3), e_=0.5):
+                super().__init__(c1_, c2_, shortcut_, g_, k, e_)
+                self.cv1 = Converse2D(c1_, c2_, kernel_size=3)
+                self.cv2 = Converse2D(c2_, c2_, kernel_size=3)
+
+        self.m = nn.ModuleList(Bottleneck_Converse(self.c, self.c, shortcut, g_=g, e_=e) for _ in range(n))
+
+
+# ===== RT2026 骨干对比实验变体（第二批）=====
+class C2f_MAC(C2fVariantBase):
+    """TGRS2025 HDNet: MAC 固定核多尺度 + 通道/空间注意力校准块。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.mac import MAC
+        self.m = nn.ModuleList(MAC(self.c, self.c) for _ in range(n))
+
+
+class C2f_EVA(C2fVariantBase):
+    """ICIP2025 BEVANET: EVA 大核 LKA 边缘视觉注意力块。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.eva import EVA
+        self.m = nn.ModuleList(EVA(self.c) for _ in range(n))
+
+
+class C2f_RMBC(C2fVariantBase):
+    """ACCV2024 PlainUSR: RepMBConv 重参数化 MBConv Bottleneck 形态。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.rmbconv import Bottleneck_RepMBConv
+        self.m = nn.ModuleList(Bottleneck_RepMBConv(self.c, self.c, shortcut, g) for _ in range(n))
+
+
+class C2f_FMA(C2fVariantBase):
+    """IJCV2024 SRConvNet: FMABlock 频域多尺度注意力块。"""
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        from ultralytics.nn.extraction.fma import FMABlock
+        self.m = nn.ModuleList(FMABlock(self.c) for _ in range(n))

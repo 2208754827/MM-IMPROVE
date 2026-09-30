@@ -75,4 +75,4 @@ head:
   - [[-1, 26], 1, Concat, [1]]                  # 37
   - [-1, 1, C3k2, [1024, True, 0.5]]            # 38 (P5/32-large)
 
-  - [[32, 35, 38], 1, v26Detect, [nc]]          # 39 v26Detect(P3, P4, P5) with end2end + reg_max=1
+  - [[32, 35, 38], 1, Detect, [nc]]          # 39 v26Detect(P3, P4, P5) with end2end + reg_max=1

@@ -538,6 +538,19 @@ from ultralytics.nn.extraction.c2f_variants import (
     CSP_MutilScaleEdgeInformationEnhance,
     CSP_MutilScaleEdgeInformationSelect,
     CSP_FreqSpatial,
+    # RT2026 骨干对比实验变体
+    C2f_GCConv,
+    C2f_ConverseB,
+    C2f_PFG,
+    C2f_SPJFB,
+    C2f_DEGConv,
+    C2f_EfficientVIM,
+    C2f_MambaOut,
+    C2f_Converse2D,
+    C2f_MAC,
+    C2f_EVA,
+    C2f_RMBC,
+    C2f_FMA,
 )
 
 _NECK_IMPORT_ERROR = None
@@ -2542,6 +2555,8 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
     max_channels = float("inf")
     nc, act, scales = (d.get(x) for x in ("nc", "activation", "scales"))
     fusion_mode, node_mode, head_channel = (d.get(x) for x in ("fusion_mode", "node_mode", "head_channel"))
+    end2end = d.get("end2end")  # YOLO26 端到端检测开关（None 时不启用）
+    reg_max = d.get("reg_max", 16)  # DFL bins（YOLO26 用 reg_max=1 简化 DFL）
 
     # 澶氭ā鎬侀厤缃В鏋愶紙浠呭鐞嗗凡杩佺Щ鐨勭粍浠讹級
     multimodal_router = None
@@ -2651,6 +2666,19 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
             CSP_MutilScaleEdgeInformationEnhance,
             CSP_MutilScaleEdgeInformationSelect,
             CSP_FreqSpatial,
+            # RT2026 骨干对比实验变体
+            C2f_GCConv,
+            C2f_ConverseB,
+            C2f_PFG,
+            C2f_SPJFB,
+    C2f_DEGConv,
+    C2f_EfficientVIM,
+    C2f_MambaOut,
+    C2f_Converse2D,
+    C2f_MAC,
+    C2f_EVA,
+    C2f_RMBC,
+    C2f_FMA,
             C2f_BiFocus,
             RepNCSPELAN4,
             RGCSPELAN,
@@ -2732,6 +2760,19 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
             CSP_MutilScaleEdgeInformationEnhance,
             CSP_MutilScaleEdgeInformationSelect,
             CSP_FreqSpatial,
+            # RT2026 骨干对比实验变体
+            C2f_GCConv,
+            C2f_ConverseB,
+            C2f_PFG,
+            C2f_SPJFB,
+    C2f_DEGConv,
+    C2f_EfficientVIM,
+    C2f_MambaOut,
+    C2f_Converse2D,
+    C2f_MAC,
+    C2f_EVA,
+    C2f_RMBC,
+    C2f_FMA,
             C2f_BiFocus,
             RGCSPELAN,
             C2fAttn,
@@ -3461,6 +3502,9 @@ def parse_model(d, ch, verbose=True, dataset_config=None):
         elif m in (DETECT_CLASS + SEGMENT_CLASS + POSE_CLASS + OBB_CLASS):
             # 涓烘娴?鍒嗗壊/濮挎€?鏃嬭浆澶存敞鍏ュ悇灞傝緭鍏ラ€氶亾鍒楄〃
             args.append([ch[x] for x in f])
+            # 标准 Detect 头：注入 yaml 顶层的 reg_max / end2end（YOLO26 特性，与上游 parse_model 对齐）
+            if m is Detect:
+                args = [args[0], reg_max, end2end] + args[1:]
             # 鍒嗗壊澶寸殑閫氱敤閫氶亾缂╂斁锛堜笌涓婃父淇濇寔涓€鑷达級
             if m in SEGMENT_CLASS:
                 # 鏌愪簺鍒嗗壊瀹炵幇浼氫娇鐢ㄧ涓変釜浣嶇疆浣滀负閫氶亾鐩稿叧瓒呭弬锛堝鍘熺敓 Segment 鐨?npr/c4锛夛紝淇濇寔涓庝笂娓镐竴鑷寸殑缂╂斁

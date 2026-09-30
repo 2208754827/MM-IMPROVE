@@ -1,80 +1,45 @@
 import os
-import gc
 import warnings
-# batch  worker  8
+
 warnings.filterwarnings("ignore", message=".*deterministic.*")
 warnings.filterwarnings("ignore", message=".*does not have a deterministic implementation.*")
 
 
 def main():
-    print("[boot] trainRT.py started", flush=True)
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
-    os.environ.setdefault("YOLO_TQDM_RICH", "false")
-    os.environ.setdefault("YOLO_VERBOSE", "true")
     os.environ.setdefault("YOLO_MM_QUIET_PROGRESS", "true")
 
-    import torch
-    from ultralytics import RTDETRMM  
-    #
+    from ultralytics import RTDETRMM
 
-    model_name1 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CMXFusion"
-    model_name2 = "aifi-dattention-CSP-MutilScaleEdgeInformationEnhance-ASF-P2-lite-CMXFusion"
-    model_dir1 = "r50"
-    model_dir2 = "r34"
-    run_name1 = f"{model_dir1}-{model_name1}"
-    run_name2 = f"{model_dir2}-{model_name2}"
-   # 4 4 8
-    batch1 = 1
-    batch2 = 1
-    workers = 4
-    amp1 = True
-    amp2 = True  # reduce late-stage NaN collapse risk on AddFusion-like variants
-
-    print(f"[train] start model1={run_name1}, batch={batch1}", flush=True)
-
-    model = RTDETRMM(f"ultralytics/cfg/models/rtmm/{model_dir1}/{model_name1}.yaml")
-    model.train(
-        data=r"D:\BaiduNetdiskDownload\m4FD\M3FD_split\data.yaml",
-        epochs=150,
-        device=0,
-        batch=batch1,
-        
-        amp=amp1,
-        deterministic=False,
-        project="D:/JiQI/MM-experiment/ResTest",
-        name=run_name1,
-        resume=False,
-        workers=workers,
+    # 从头训练 baseline_plus_csp
+    model = RTDETRMM(
+        r"D:\BaiduNetdiskDownload\MutilModel_3398475911\ultralytics\cfg\models\rtmm\r18\baseline_plus_cmx.yaml"
     )
 
-    # Release memory before training the heavier second model.
-    if "model" in locals():
-        del model
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            try:
-                torch.cuda.ipc_collect()
-            except Exception:
-                pass
-
-    print(f"[train] start model2={run_name2}, batch={batch2}", flush=True)
-    model = RTDETRMM(f"ultralytics/cfg/models/rtmm/{model_dir2}/{model_name2}.yaml")
     model.train(
-        data=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml",
-        epochs=150,
+        data=r"D:\BaiduNetdiskDownload\M3FD_split\data.yaml",
+        epochs=250,
+        imgsz=640,
+        batch=4,
         device=0,
-        batch=batch2,
-        
-        amp=amp2,
+        workers=8,
+
+        optimizer="auto",
+        lr0=0.01,
+        cos_lr=False,
+
+        amp=False,
         deterministic=False,
-        project="D:/JiQI/MM-experiment/ResTest",
-        name=run_name2,
+        save_period=-1,
+        project=r"D:\JiQI\MM-experiment\ResTest",
+        name="only-asf",
+        exist_ok=False,
         resume=False,
-        workers=workers,
     )
+
 
 if __name__ == "__main__":
-     main()
+    main()
+

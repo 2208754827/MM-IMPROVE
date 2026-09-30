@@ -54,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Random-only iterative pruning for RTDETRMM VIF models")
     parser.add_argument("--weights", type=str, default=str(default_weights), help="Input .pt checkpoint")
     parser.add_argument("--output", type=str, default="prune_outputs_random_only", help="Output .pt path or directory")
-    parser.add_argument("--data", type=str, default=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml")
+    parser.add_argument("--data", type=str, default=r"D:\BaiduNetdiskDownload\m4FD\M3FD_split\data.yaml")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--batch-size", type=int, default=1)
@@ -365,7 +365,10 @@ def get_candidate_root_names_for_layer(model: nn.Module, idx: int, layer: nn.Mod
 
 
 def build_meta_pruner(wrapper: ModelWrapper, tp, args, vis, ir):
-    importance = tp.importance.TaylorImportance(group_reduction="mean", normalizer="mean")
+    # Random pruning uses its own manual channel ranking below.
+    # Keep the MetaPruner importance simple and gradient-free to avoid
+    # accidental dependence on Taylor scores during tracing.
+    importance = tp.importance.MagnitudeImportance(p=1, group_reduction="mean", normalizer="mean")
     pruner = tp.pruner.MetaPruner(
         wrapper,
         example_inputs=(vis, ir),
@@ -525,7 +528,7 @@ def prune_one_round(
                     best_candidate = candidate
 
             if best_candidate is None:
-                log(f"Round {round_idx}: no more safe Taylor pruning candidates.")
+                log(f"Round {round_idx}: no more safe random pruning candidates.")
                 break
 
             raw_score, spec, idxs = best_candidate

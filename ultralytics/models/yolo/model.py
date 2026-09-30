@@ -9,7 +9,10 @@ from ultralytics.data.build import load_inference_source
 from ultralytics.engine.model import Model
 from ultralytics.models import yolo
 from ultralytics.nn.mm.filling import generate_modality_filling
-from ultralytics.models.yolo.multimodal.visualize.utils import load_image
+try:
+    from ultralytics.models.yolo.multimodal.visualize.utils import load_image
+except Exception:
+    load_image = None
 from ultralytics.nn.tasks import (
     ClassificationModel,
     DetectionModel,

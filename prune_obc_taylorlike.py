@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="OBC-TaylorLike iterative pruning for RTDETRMM VIF models")
     parser.add_argument("--weights", type=str, default=str(default_weights), help="Input .pt checkpoint")
     parser.add_argument("--output", type=str, default="prune_outputs", help="Output .pt path or directory")
-    parser.add_argument("--data", type=str, default=r"D:\BaiduNetdiskDownload\M3FD\M3FD_split\data.yaml", help="Dataset yaml for the printed resume command")
+    parser.add_argument("--data", type=str, default=r"D:\BaiduNetdiskDownload\m4FD\M3FD_split\data.yaml", help="Dataset yaml for the printed resume command")
     parser.add_argument("--device", type=str, default="cuda:0", help="cuda:0, 0 or cpu")
     parser.add_argument("--imgsz", type=int, default=640, help="Input image size")
     parser.add_argument("--batch-size", type=int, default=1, help="Dummy batch size")

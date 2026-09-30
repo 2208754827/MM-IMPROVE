@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda env *)",
+      "Bash(D:/Anaconda/envs/MM/python.exe -c ' *)",
+      "Read(//c/Users/admin/Downloads/**)",
+      "Bash(cat \"D:/BaiduNetdiskDownload/VedAi_data/vedai_split/data.yaml\" 2>/dev/null || echo \"File not found\")",
+      "Read(//d/BaiduNetdiskDownload/VedAi_data/vedai_split/**)",
+      "Bash(ls \"D:/BaiduNetdiskDownload/KAIST8/\" 2>/dev/null || echo \"Directory not found\")",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/**)",
+      "Bash(ls \"D:/BaiduNetdiskDownload/KAIST8/images/\" 2>/dev/null)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/images/**)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/images/visible/**)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/images/infrared/**)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/labels/**)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/labels/visible/**)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/labels/infrared/**)",
+      "Bash(ls \"D:/BaiduNetdiskDownload/KAIST8/images/visible/train/\" 2>/dev/null | head -5)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/images/visible/train/**)",
+      "Bash(ls \"D:/BaiduNetdiskDownload/KAIST8/labels/visible/train/\" 2>/dev/null | head -5)",
+      "Read(//d/BaiduNetdiskDownload/KAIST8/labels/visible/train/**)",
+      "Read(//d/BaiduNetdiskDownload/M3FD_split/**)",
+      "Bash(ls \"D:/BaiduNetdiskDownload/KAIST8/labels/visible/test/\" | wc -l && echo \"---\" && ls \"D:/BaiduNetdiskDownload/KAIST8/labels/visible/train/\" | wc -l && echo \"---\" && ls \"D:/BaiduNetdiskDownload/KAIST8/images/visible/val/\" | wc -l && echo \"---\" && ls \"D:/BaiduNetdiskDownload/KAIST8/images/visible/train/\" | wc -l)"
+    ]
+  }
+}
