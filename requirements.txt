@@ -9,20 +9,24 @@
 #   pip install -r requirements.txt
 #
 # 注意：
-#   1. 文件顶部两条 --extra-index-url 分别指向 PyTorch(CUDA12.1) 与 OpenMMLab
-#      预编译轮子，必须保留。若服务器 CUDA 不是 12.1，需把 cu121 改成对应版本
-#      （如 cu118），torch 三件套与 mmcv 的 URL 同步修改。
-#   2. 服务器无 GUI 用 opencv-python-headless；本机调试可换 opencv-python。
-#   3. 本 fork 不依赖 torchmetrics / transformers（原版 ultralytics 才需要）。
+#   1. AutoDL 的 "PyTorch 2.1.0 + CUDA 12.1" 镜像已自带 torch 三件套，已在第 1 节
+#      注释掉、不重装。仅保留 OpenMMLab 的 --extra-index-url（mmcv 预编译轮子必需）。
+#   2. 若服务器 CUDA 不是 12.1，需把 mmcv 的 URL 里 cu121 改成对应版本（如 cu118），
+#      并解开第 1 节按对应 CUDA 重装 torch。
+#   3. 服务器无 GUI 用 opencv-python-headless；本机调试可换 opencv-python。
+#   4. 本 fork 不依赖 torchmetrics / transformers（原版 ultralytics 才需要）。
 # =============================================================================
 
 
 # --------------------------- 1. PyTorch (CUDA 12.1) --------------------------
-# 服务器 CUDA 版本不同请把 cu121 全部替换（如 cu118），torch 三件套同步换。
---extra-index-url https://download.pytorch.org/whl/cu121
-torch==2.1.0+cu121
-torchvision==0.16.0+cu121
-torchaudio==2.1.0+cu121
+# AutoDL 等 "PyTorch 2.1.0 + CUDA 12.1" 镜像已预装 torch/torchvision/torchaudio,
+# 无需重装（重装会下 2.2GB wheel，易被 OOM Killed）。先验证：
+#   python -c "import torch;print(torch.__version__, torch.version.cuda)"
+# 应输出 2.1.0+cu121 / 12.1。若已是，保持下面注释；若从零自配环境，解开下面四行。
+# --extra-index-url https://download.pytorch.org/whl/cu121
+# torch==2.1.0+cu121
+# torchvision==0.16.0+cu121
+# torchaudio==2.1.0+cu121
 
 
 # ---------------- 2. mmcv / mmengine（需匹配 torch+CUDA 预编译轮子） ----------
